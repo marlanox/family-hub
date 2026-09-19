@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "Unbounded", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+}
+
+html,
+body {
+  background-color: #f4efe2;
+  color: #151313;
+}
+
+body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-weight: 800;
+}
+
+/* Torn-paper / grain texture sitting over the warm paper background. */
+.paper-bg {
+  position: relative;
+  background-color: #f4efe2;
+  background-image: var(--tw-bg-grain, none);
+}
+
+.paper-texture::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+/* Halftone dot field used inside comic bursts / dark panels. */
+.halftone-dots {
+  background-image: radial-gradient(currentColor 1px, transparent 1.2px);
+  background-size: 9px 9px;
+}
+
+.text-outline {
+  -webkit-text-stroke: 1.5px #151313;
+  paint-order: stroke fill;
+}
+
+.text-outline-white {
+  -webkit-text-stroke: 2px #f4efe2;
+  paint-order: stroke fill;
+}
+
+/* Irregular sticker blob used behind portrait cutouts. */
+.blob-shape {
+  border-radius: 35% 65% 68% 32% / 40% 45% 55% 60%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-pop-in {
+  animation: pop-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes count-bounce {
+  0% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-6px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.animate-count-bounce {
+  animation: count-bounce 0.4s ease-out;
+}
+
+/* Slightly irregular "torn sticker" rectangle for banner/header cards. */
+.rounded-torn {
+  border-radius: 30px 46px 34px 42px / 40px 30px 46px 28px;
+}
+
+/* Comic "explosion" burst used for page titles (НАША СЕМЬЯ, РЕЙТИНГ, …). */
+.spike-burst {
+  clip-path: polygon(
+    50% 4%, 61% 14%, 74% 6%, 78% 20%, 93% 15%,
+    89% 29%, 100% 38%, 87% 45%, 96% 58%, 83% 60%,
+    87% 74%, 73% 69%, 71% 86%, 59% 75%, 50% 96%,
+    41% 75%, 29% 86%, 27% 69%, 13% 74%, 17% 60%,
+    4% 58%, 13% 45%, 0% 38%, 11% 29%, 7% 15%,
+    22% 20%, 26% 6%, 39% 14%
+  );
+}
