@@ -3,8 +3,8 @@
 import { ComicButton } from "@/components/ComicButton";
 import { Icon } from "@/components/Icon";
 import { useFamilyStore } from "@/lib/store";
-import { useRouter } from "next/navigation";
-import { use, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 const REASONS = [
   "Не успеваю",
@@ -15,8 +15,16 @@ const REASONS = [
   "Без причины",
 ];
 
-export default function TaskReminderPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function TaskReminderPage() {
+  return (
+    <Suspense fallback={null}>
+      <TaskReminderContent />
+    </Suspense>
+  );
+}
+
+function TaskReminderContent() {
+  const id = useSearchParams().get("id") ?? "";
   const router = useRouter();
   const task = useFamilyStore((s) => s.tasks.find((t) => t.id === id));
   const members = useFamilyStore((s) => s.members);
@@ -38,7 +46,7 @@ export default function TaskReminderPage({ params }: { params: Promise<{ id: str
     task.assignee.kind === "family"
       ? "Все"
       : task.assignee.memberIds
-          .map((id) => members.find((m) => m.id === id)?.displayName ?? id)
+          .map((mid) => members.find((m) => m.id === mid)?.displayName ?? mid)
           .join(", ");
 
   if (confirmingRefuse) {

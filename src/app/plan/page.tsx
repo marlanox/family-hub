@@ -70,7 +70,7 @@ export default function PlanPage() {
         {visible.map((task) => {
           const status = occurrences[`${task.id}__${key}`]?.status ?? "pending";
           return (
-            <Link key={task.id} href={`/tasks/${task.id}/remind`} className="block">
+            <Link key={task.id} href={`/tasks/remind?id=${task.id}`} className="block">
               <TaskCard
                 icon={task.icon}
                 color={task.color}

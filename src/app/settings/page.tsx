@@ -3,6 +3,7 @@
 import { ComicButton } from "@/components/ComicButton";
 import { ColorPicker } from "@/components/ColorPicker";
 import { Icon } from "@/components/Icon";
+import { playSound } from "@/lib/sound";
 import { useFamilyStore } from "@/lib/store";
 import type { FamilyMember } from "@/lib/types";
 import { useRouter } from "next/navigation";
@@ -80,6 +81,13 @@ export default function SettingsPage() {
             <span className="font-semibold">Весёлые звуки за успехи</span>
             <input type="checkbox" checked={soundEnabled} onChange={toggleSound} className="h-6 w-6 accent-pink" />
           </label>
+          <ComicButton
+            variant="yellow"
+            className="mt-2 w-full"
+            onClick={() => playSound("preview", true)}
+          >
+            🔊 Проверить звук
+          </ComicButton>
         </section>
 
         <section>

@@ -4,7 +4,7 @@
 // only ever positive/celebratory sounds — see docs/ARCHITECTURE.md
 // "Sound" for why refusals stay silent.
 
-type SoundName = "complete" | "badge" | "reward" | "tap";
+type SoundName = "complete" | "badge" | "reward" | "tap" | "created" | "preview";
 
 let ctx: AudioContext | null = null;
 
@@ -57,6 +57,19 @@ const RECIPES: Record<SoundName, (audioCtx: AudioContext) => void> = {
       tone(audioCtx, f, now + i * 0.07, 0.35, { gain: 0.16 }),
     );
     [783.99, 1046.5].forEach((f) => tone(audioCtx, f, now + 0.42, 0.6, { type: "sine", gain: 0.12 }));
+  },
+  created: (audioCtx) => {
+    const now = audioCtx.currentTime;
+    [660, 990].forEach((f, i) => tone(audioCtx, f, now + i * 0.06, 0.15, { type: "square", gain: 0.09 }));
+  },
+  // A cheerful little "ta-da" xylophone run — used by the Settings preview
+  // button so you can hear what the celebratory sounds are like on demand.
+  preview: (audioCtx) => {
+    const now = audioCtx.currentTime;
+    [440, 554.37, 659.25, 880, 1108.73].forEach((f, i) =>
+      tone(audioCtx, f, now + i * 0.09, 0.3, { type: "square", gain: 0.12 }),
+    );
+    tone(audioCtx, 1318.5, now + 0.55, 0.5, { type: "sine", gain: 0.14 });
   },
 };
 

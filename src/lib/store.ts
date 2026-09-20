@@ -322,6 +322,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         const now = new Date().toISOString();
         const task: Task = { id, familyId: demoFamily.id, createdAt: now, updatedAt: now, ...input };
         set((state) => ({ tasks: [task, ...state.tasks] }));
+        playSound("created", get().soundEnabled);
         return id;
       },
 
@@ -352,6 +353,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           memberId: id,
           message: `${name} присоединил(ась) к семье`,
         });
+        playSound("created", get().soundEnabled);
         return id;
       },
 

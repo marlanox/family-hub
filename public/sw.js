@@ -10,7 +10,11 @@
 //      would drive these later).
 
 const CACHE_NAME = "family-hub-shell-v1";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+// Derived from where this worker was actually registered, so the same
+// file works whether the app is served from "/" or a subpath like
+// "/family-hub/" (GitHub Pages project sites).
+const BASE = new URL(self.registration.scope).pathname;
+const APP_SHELL = [BASE, `${BASE}manifest.webmanifest`, `${BASE}icons/icon-192.png`, `${BASE}icons/icon-512.png`];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -37,7 +41,7 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached ?? caches.match("/"))),
+      .catch(() => caches.match(event.request).then((cached) => cached ?? caches.match(BASE))),
   );
 });
 
@@ -55,8 +59,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title ?? "Family Hub", {
       body: payload.body,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: `${BASE}icons/icon-192.png`,
+      badge: `${BASE}icons/icon-192.png`,
       data: payload.data ?? {},
       actions: payload.actions ?? [],
     }),
