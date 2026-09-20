@@ -405,6 +405,11 @@ export const useFamilyStore = create<FamilyHubState>()(
       name: "family-hub-storage",
       storage: createJSONStorage(() => localStorage),
       version: 1,
+      // Server-rendered HTML can't see localStorage, so the first paint
+      // must use the same in-memory demo state on both server and
+      // client — see components/StoreHydrator.tsx, which triggers the
+      // real rehydration right after mount to avoid a hydration mismatch.
+      skipHydration: true,
     },
   ),
 );

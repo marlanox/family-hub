@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Unbounded, Inter } from "next/font/google";
 import { CelebrationToast } from "@/components/CelebrationToast";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { StoreHydrator } from "@/components/StoreHydrator";
 import "./globals.css";
 
 // Both support Cyrillic — required since the whole UI is in Russian.
@@ -58,6 +59,7 @@ export default function RootLayout({
         </div>
         <CelebrationToast />
         <ServiceWorkerRegister />
+        <StoreHydrator />
       </body>
     </html>
   );
