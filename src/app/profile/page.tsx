@@ -8,6 +8,7 @@ import { TaskCard } from "@/components/TaskCard";
 import { accentMap } from "@/lib/colors";
 import { todayISO } from "@/lib/schedule";
 import { useFamilyStore } from "@/lib/store";
+import { uploadPhoto } from "@/lib/sync";
 import type { IconKey } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useRef, useState } from "react";
@@ -46,9 +47,11 @@ function ProfileContent() {
   const completeTask = useFamilyStore((s) => s.completeTask);
   const updateMemberPhoto = useFamilyStore((s) => s.updateMemberPhoto);
   const whoAmI = useFamilyStore((s) => s.whoAmI);
+  const familyCode = useFamilyStore((s) => s.familyCode);
 
   const [selectedId, setSelectedId] = useState(preselected ?? members[0]?.id);
   const [tab, setTab] = useState<Tab>("tasks");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const member = members.find((m) => m.id === selectedId) ?? members[0];
@@ -61,8 +64,22 @@ function ProfileContent() {
   );
   const key = todayISO();
 
-  const onPhotoChosen = (file: File) => {
+  const onPhotoChosen = async (file: File) => {
     const memberId = member.id;
+    // Synced: upload to Storage so the ~few-KB URL is what gets polled
+    // to other devices, not a multi-MB base64 blob. Local-only: keep the
+    // simple inline data URL, which needs no network at all.
+    if (familyCode) {
+      setUploadingPhoto(true);
+      const url = await uploadPhoto(file, memberId);
+      setUploadingPhoto(false);
+      if (url) {
+        updateMemberPhoto(memberId, url);
+        return;
+      }
+      // Storage upload failed (bucket not set up yet, offline, …) — fall
+      // back to local so the photo still shows on this device.
+    }
     const reader = new FileReader();
     reader.onload = () => updateMemberPhoto(memberId, reader.result as string);
     reader.readAsDataURL(file);
@@ -102,10 +119,11 @@ function ProfileContent() {
             <FamilyMemberSticker member={member} size="lg" crown={rank === 1} />
             <button
               onClick={() => fileRef.current?.click()}
+              disabled={uploadingPhoto}
               aria-label="Изменить фото"
               className="absolute -right-1 bottom-6 flex h-8 w-8 items-center justify-center rounded-full border-3 border-ink bg-white shadow-pop-sm"
             >
-              ✏️
+              {uploadingPhoto ? "⏳" : "✏️"}
             </button>
             <input
               ref={fileRef}

@@ -4,7 +4,8 @@ import { ComicButton } from "@/components/ComicButton";
 import { ColorPicker } from "@/components/ColorPicker";
 import { Icon } from "@/components/Icon";
 import { playSound } from "@/lib/sound";
-import { isSupabaseConfigured } from "@/lib/supabaseClient";
+import { isSyncAvailable, usingCustomSupabase, activeSupabaseUrl } from "@/lib/supabaseClient";
+import { enablePushForMember, pushSupported } from "@/lib/push";
 import { useFamilyStore } from "@/lib/store";
 import type { FamilyMember } from "@/lib/types";
 import { useRouter } from "next/navigation";
@@ -27,6 +28,7 @@ export default function SettingsPage() {
   const leaveSync = useFamilyStore((s) => s.leaveSync);
   const pullSync = useFamilyStore((s) => s.pullSync);
   const lastSyncedAt = useFamilyStore((s) => s.lastSyncedAt);
+  const setCustomSupabaseConfig = useFamilyStore((s) => s.setCustomSupabaseConfig);
   const me = members.find((m) => m.id === whoAmI);
 
   const [name, setName] = useState("");
@@ -34,6 +36,15 @@ export default function SettingsPage() {
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [ownProjectOpen, setOwnProjectOpen] = useState(false);
+  const [ownUrl, setOwnUrl] = useState("");
+  const [ownKey, setOwnKey] = useState("");
+  const [creatingSync, setCreatingSync] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
+  const [pushStatus, setPushStatus] = useState<string | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
 
   return (
     <>
@@ -56,6 +67,40 @@ export default function SettingsPage() {
             </ComicButton>
           </div>
         </section>
+
+        {isSyncAvailable() && familyCode && whoAmI && (
+          <section>
+            <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Уведомления на этот телефон</h2>
+            <p className="mb-2 px-1 text-xs font-semibold text-ink/50">
+              Когда кто-то в семье выполнит или отменит задачу — вы получите пуш, даже если приложение закрыто.
+              На iPhone это работает, только если приложение установлено на домашний экран (не просто открыто в
+              Safari) и на iOS 16.4 или новее.
+            </p>
+            <ComicButton
+              variant="mint"
+              className="w-full"
+              disabled={pushBusy || !pushSupported}
+              onClick={async () => {
+                setPushBusy(true);
+                setPushStatus(null);
+                const result = await enablePushForMember(whoAmI);
+                setPushBusy(false);
+                setPushStatus(
+                  result === "subscribed"
+                    ? "Готово ✓ Уведомления включены на этом телефоне."
+                    : result === "denied"
+                      ? "Разрешение не дано — включите уведомления для этого сайта в настройках телефона."
+                      : result === "unsupported"
+                        ? "Этот браузер не поддерживает уведомления (или приложение не установлено на домашний экран)."
+                        : "Не получилось — проверьте интернет и попробуйте ещё раз.",
+                );
+              }}
+            >
+              {pushBusy ? "Включаем…" : "🔔 Включить уведомления"}
+            </ComicButton>
+            {pushStatus && <p className="mt-2 px-1 text-xs font-bold">{pushStatus}</p>}
+          </section>
+        )}
 
         <section>
           <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Члены семьи</h2>
@@ -127,17 +172,17 @@ export default function SettingsPage() {
         <section>
           <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Синхронизация между телефонами</h2>
 
-          {!isSupabaseConfigured && (
+          {!isSyncAvailable() && (
             <div className="space-y-2 rounded-2xl border-3 border-ink bg-white p-3 text-sm font-semibold shadow-pop-sm">
               <p>
                 Сейчас всё хранится только на этом устройстве (офлайн, бесплатно, без аккаунта). Чтобы баллы и
-                задачи синхронизировались между телефонами всей семьи, подключите бесплатный Supabase-проект —
-                инструкция в <code className="rounded bg-paper px-1">README.md</code> репозитория.
+                задачи синхронизировались между телефонами семьи, подключите бесплатный Supabase-проект — свой
+                собственный (ниже) или, если он есть, общий для этой копии приложения.
               </p>
             </div>
           )}
 
-          {isSupabaseConfigured && !familyCode && (
+          {isSyncAvailable() && !familyCode && (
             <div className="space-y-3">
               <p className="px-1 text-xs font-semibold text-ink/50">
                 Один человек создаёт код, остальные вводят его на своих телефонах — дальше баллы и задачи общие.
@@ -145,12 +190,18 @@ export default function SettingsPage() {
               <ComicButton
                 variant="mint"
                 className="w-full"
+                disabled={creatingSync}
                 onClick={async () => {
-                  await enableSync();
+                  setCreateError(null);
+                  setCreatingSync(true);
+                  const code = await enableSync();
+                  setCreatingSync(false);
+                  if (!code) setCreateError("Не получилось создать код — проверьте интернет и попробуйте ещё раз.");
                 }}
               >
-                Создать код синхронизации
+                {creatingSync ? "Создаём…" : "Создать код синхронизации"}
               </ComicButton>
+              {createError && <p className="px-1 text-xs font-bold text-pink-deep">{createError}</p>}
               <div className="rounded-2xl border-3 border-dashed border-ink/30 p-3 space-y-2">
                 <input
                   value={joinCode}
@@ -175,7 +226,7 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {isSupabaseConfigured && familyCode && (
+          {isSyncAvailable() && familyCode && (
             <div className="space-y-2">
               <div className="rounded-2xl border-3 border-ink bg-mint p-3 shadow-pop-sm">
                 <p className="text-xs font-bold uppercase text-ink/60">Код вашей семьи</p>
@@ -209,18 +260,122 @@ export default function SettingsPage() {
         </section>
 
         <section>
+          <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Своё облако (для друзей)</h2>
+          <p className="mb-2 px-1 text-xs font-semibold text-ink/50">
+            Прислали кому-то ссылку на это же приложение? Пусть заведёт свой бесплатный Supabase-проект (2 минуты,
+            только email) и впишет его сюда — тогда его семья хранится в его собственном облаке, а не в вашем.
+            {usingCustomSupabase() && activeSupabaseUrl() && (
+              <>
+                {" "}
+                Сейчас это устройство использует: <code className="rounded bg-paper px-1 break-all">{activeSupabaseUrl()}</code>
+              </>
+            )}
+          </p>
+          {!ownProjectOpen ? (
+            <ComicButton variant="outline" className="w-full" onClick={() => setOwnProjectOpen(true)}>
+              {usingCustomSupabase() ? "Изменить свой проект" : "Подключить свой Supabase-проект"}
+            </ComicButton>
+          ) : (
+            <div className="space-y-2 rounded-2xl border-3 border-dashed border-ink/30 p-3">
+              <input
+                value={ownUrl}
+                onChange={(e) => setOwnUrl(e.target.value)}
+                placeholder="Project URL (https://xxxx.supabase.co)"
+                className="w-full rounded-xl border-3 border-ink px-3 py-2 text-sm font-semibold outline-none"
+              />
+              <input
+                value={ownKey}
+                onChange={(e) => setOwnKey(e.target.value)}
+                placeholder="anon public key"
+                className="w-full rounded-xl border-3 border-ink px-3 py-2 text-sm font-semibold outline-none"
+              />
+              <div className="flex gap-2">
+                <ComicButton
+                  variant="mint"
+                  className="flex-1"
+                  disabled={!ownUrl.trim() || !ownKey.trim()}
+                  onClick={() => {
+                    setCustomSupabaseConfig(ownUrl.trim(), ownKey.trim());
+                    setOwnProjectOpen(false);
+                    setOwnUrl("");
+                    setOwnKey("");
+                  }}
+                >
+                  Сохранить
+                </ComicButton>
+                {usingCustomSupabase() && (
+                  <ComicButton
+                    variant="pink"
+                    className="flex-1"
+                    onClick={() => {
+                      setCustomSupabaseConfig(null, null);
+                      setOwnProjectOpen(false);
+                    }}
+                  >
+                    Убрать свой
+                  </ComicButton>
+                )}
+                <ComicButton variant="outline" className="flex-1" onClick={() => setOwnProjectOpen(false)}>
+                  Отмена
+                </ComicButton>
+              </div>
+              <p className="text-[11px] font-semibold text-ink/40">
+                Найти: supabase.com → ваш проект → Settings → API. Не забудьте выполнить{" "}
+                <code className="rounded bg-paper px-1">supabase/schema.sql</code> в SQL Editor этого проекта.
+              </p>
+            </div>
+          )}
+        </section>
+
+        <section>
           <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Опасная зона</h2>
-          <ComicButton
-            variant="pink"
-            className="w-full"
-            onClick={() => {
-              if (confirm("Стереть всех членов семьи, все задачи, баллы и историю на этом устройстве? Это нельзя отменить.")) {
-                resetAll();
-              }
-            }}
-          >
-            Сбросить все данные
-          </ComicButton>
+          {!resetOpen ? (
+            <ComicButton variant="pink" className="w-full" onClick={() => setResetOpen(true)}>
+              Сбросить все данные
+            </ComicButton>
+          ) : (
+            <div className="space-y-2 rounded-2xl border-3 border-ink bg-white p-3 shadow-pop-sm">
+              <p className="text-xs font-semibold">
+                Это сотрёт членов семьи, задачи, баллы и историю <b>на этом устройстве</b>.{" "}
+                {familyCode
+                  ? "У вас включена синхронизация — данные семьи останутся в облаке, вернуть их можно, снова введя тот же код."
+                  : "Синхронизация выключена — эти данные нигде больше не хранятся, восстановить их будет нельзя."}
+              </p>
+              <p className="text-xs font-bold">
+                Чтобы подтвердить, наберите <span className="rounded bg-paper px-1">СБРОСИТЬ</span>:
+              </p>
+              <input
+                value={resetConfirmText}
+                onChange={(e) => setResetConfirmText(e.target.value)}
+                className="w-full rounded-xl border-3 border-ink px-3 py-2 font-semibold outline-none"
+                placeholder="СБРОСИТЬ"
+              />
+              <div className="flex gap-2">
+                <ComicButton
+                  variant="pink"
+                  className="flex-1"
+                  disabled={resetConfirmText.trim().toUpperCase() !== "СБРОСИТЬ"}
+                  onClick={() => {
+                    resetAll();
+                    setResetOpen(false);
+                    setResetConfirmText("");
+                  }}
+                >
+                  Стереть
+                </ComicButton>
+                <ComicButton
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setResetOpen(false);
+                    setResetConfirmText("");
+                  }}
+                >
+                  Отмена
+                </ComicButton>
+              </div>
+            </div>
+          )}
         </section>
       </main>
     </>

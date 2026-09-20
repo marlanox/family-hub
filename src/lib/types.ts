@@ -8,6 +8,7 @@
 
 export type IconKey =
   | "cat"
+  | "dog"
   | "book"
   | "homework"
   | "shower"

@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 import { Icon } from "./Icon";
 
 const OPTIONS: IconKey[] = [
-  "broom", "dishes", "vacuum", "cat", "homework", "shower", "laundry", "trash",
+  "broom", "dishes", "vacuum", "cat", "dog", "homework", "shower", "laundry", "trash",
   "exercise", "phone-off", "alarm", "kitchen", "bedroom", "reading", "heart",
   "sun", "moon", "bed", "shirt", "house", "trophy", "star", "checklist", "food",
 ];

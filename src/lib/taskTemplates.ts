@@ -15,6 +15,7 @@ export const taskTemplates: TaskTemplate[] = [
   { id: "dishes", title: "Посуда", category: "household", icon: "dishes", color: "sky", points: 20, difficulty: "easy" },
   { id: "vacuum", title: "Пылесос", category: "household", icon: "vacuum", color: "pink", points: 40, difficulty: "normal" },
   { id: "cat", title: "Покормить кота", category: "pet", icon: "cat", color: "pink", points: 20, difficulty: "easy" },
+  { id: "dog-walk", title: "Погулять с собакой", category: "pet", icon: "dog", color: "yellow", points: 30, difficulty: "normal" },
   { id: "homework", title: "Уроки", category: "school", icon: "homework", color: "lilac", points: 50, difficulty: "hard" },
   { id: "shower", title: "Душ", category: "hygiene", icon: "shower", color: "lilac", points: 20, difficulty: "easy" },
   { id: "laundry", title: "Стирка", category: "household", icon: "laundry", color: "sky", points: 30, difficulty: "normal" },

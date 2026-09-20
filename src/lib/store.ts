@@ -7,6 +7,7 @@ import { playSound } from "./sound";
 import {
   createRemoteFamily,
   fetchSnapshot,
+  notifyFamily,
   pushActivity,
   pushComplete,
   pushMember,
@@ -14,6 +15,7 @@ import {
   pushSnooze,
   pushTask,
 } from "./sync";
+import { setCustomSupabase } from "./supabaseClient";
 import type {
   ActivityEvent,
   Difficulty,
@@ -36,12 +38,16 @@ function nextFamilyRewardName(tier: number) {
   return FAMILY_REWARD_ROTATION[tier % FAMILY_REWARD_ROTATION.length]!;
 }
 
-function newId(prefix: string) {
-  const rand =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2);
-  return `${prefix}-${rand}`;
+// Real UUIDs only — these ids get written straight into Postgres `uuid`
+// columns when sync is on, and a prefixed string like "member-<uuid>"
+// is rejected by Postgres at the type level (silently, from the app's
+// point of view, since every push swallows its own errors). The
+// `prefix` param is kept for callsite readability but no longer used.
+function newId(_prefix?: string) {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  // Extremely unlikely fallback (pre-2022 browser): not a real UUID, so
+  // sync will reject it — local-only mode still works fine with it.
+  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
 }
 
 interface OccurrenceRecord {
@@ -103,6 +109,8 @@ interface FamilyHubState {
   familyCode: string | null;
   lastSyncedAt: string | null;
   syncing: boolean;
+  customSupabaseUrl: string | null;
+  customSupabaseKey: string | null;
 
   occurrenceFor: (taskId: string, dateISO?: string) => OccurrenceRecord;
   todaysTasks: (dateISO?: string) => Task[];
@@ -123,6 +131,7 @@ interface FamilyHubState {
   joinSync: (code: string) => Promise<boolean>;
   pullSync: () => Promise<void>;
   leaveSync: () => void;
+  setCustomSupabaseConfig: (url: string | null, key: string | null) => void;
   toggleSound: () => void;
   dismissCelebration: () => void;
   logActivity: (event: Omit<ActivityEvent, "id" | "familyId" | "createdAt">) => void;
@@ -173,6 +182,11 @@ export const useFamilyStore = create<FamilyHubState>()(
       hasHydrated: false,
       lastCelebration: null,
       syncing: false,
+      // Not part of EMPTY_STATE: which cloud project this *device* talks
+      // to is a device setting, not family data — "Сбросить все данные"
+      // shouldn't disconnect a friend's own Supabase project.
+      customSupabaseUrl: null,
+      customSupabaseKey: null,
 
       occurrenceFor: (taskId, dateISO = todayISO()) => {
         const key = occurrenceKey(taskId, dateISO);
@@ -347,6 +361,12 @@ export const useFamilyStore = create<FamilyHubState>()(
 
         if (state.familyCode) {
           void pushComplete(task.id, dateISO, state.familyCode, task.points, members.map((m) => m.id));
+          void notifyFamily(
+            state.familyCode,
+            members.map((m) => m.id),
+            "Family Hub",
+            completedMessage,
+          );
         }
       },
 
@@ -391,6 +411,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             },
             state.familyCode,
           );
+          void notifyFamily(state.familyCode, members.map((m) => m.id), "Family Hub", refusedMessage);
         }
       },
 
@@ -526,6 +547,11 @@ export const useFamilyStore = create<FamilyHubState>()(
       },
 
       leaveSync: () => set({ familyCode: null, lastSyncedAt: null }),
+
+      setCustomSupabaseConfig: (url, key) => {
+        setCustomSupabase(url, key);
+        set({ customSupabaseUrl: url, customSupabaseKey: key, familyCode: null, lastSyncedAt: null });
+      },
 
       toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
       dismissCelebration: () => set({ lastCelebration: null }),

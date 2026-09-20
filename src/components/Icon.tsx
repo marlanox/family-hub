@@ -12,6 +12,9 @@ const paths: Record<IconKey, React.ReactNode> = {
   cat: (
     <path d="M5 9 7 4l2 4h6l2-4 2 5v7a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4Zm3 6h.01M15 15h.01M9 18c1 1 5 1 6 0" />
   ),
+  dog: (
+    <path d="M4 10c0-3 2-6 4-6 1 1 1 3 1 3h6s0-2 1-3c2 0 4 3 4 6v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5Zm4 6h.01M15 16h.01M10 19c1 1 3 1 4 0M3 9l2 3M21 9l-2 3" />
+  ),
   book: (
     <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5Zm0 0V19M8 7h8M8 11h8" />
   ),

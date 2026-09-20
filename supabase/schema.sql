@@ -18,6 +18,7 @@
 --
 -- Safe to (re-)run on a fresh project: drops these specific tables first.
 
+drop table if exists push_subscriptions cascade;
 drop table if exists family_activity cascade;
 drop table if exists family_reward_history cascade;
 drop table if exists user_badges cascade;
@@ -111,6 +112,15 @@ create table family_reward_history (
   tier integer not null,
   name text not null,
   unlocked_at timestamptz not null default now()
+);
+
+create table push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid not null references family_members(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now()
 );
 
 create table family_activity (
@@ -271,6 +281,7 @@ alter table task_occurrences enable row level security;
 alter table user_badges enable row level security;
 alter table family_reward_history enable row level security;
 alter table family_activity enable row level security;
+alter table push_subscriptions enable row level security;
 
 create policy "anyone with the anon key can read/write families"
   on families for all using (true) with check (true);
@@ -286,7 +297,26 @@ create policy "anyone with the anon key can read/write family_reward_history"
   on family_reward_history for all using (true) with check (true);
 create policy "anyone with the anon key can read/write family_activity"
   on family_activity for all using (true) with check (true);
+create policy "anyone with the anon key can read/write push_subscriptions"
+  on push_subscriptions for all using (true) with check (true);
 
 -- Lets the client subscribe to live changes (Database → Replication in
 -- the dashboard does the same thing; this just does it from SQL).
 alter publication supabase_realtime add table family_members, tasks, task_occurrences, family_activity, family_reward_history;
+
+-- ---------------------------------------------------------------------
+-- Storage — profile photos. Public bucket: anyone with a photo's exact
+-- URL can view it (fine for a family avatar), but listing/guessing is
+-- not possible without the id. Same anon-key trust model as everywhere
+-- else in this file.
+-- ---------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public) values ('photos', 'photos', true)
+  on conflict (id) do nothing;
+
+drop policy if exists "anyone with the anon key can read photos" on storage.objects;
+drop policy if exists "anyone with the anon key can upload photos" on storage.objects;
+create policy "anyone with the anon key can read photos"
+  on storage.objects for select using (bucket_id = 'photos');
+create policy "anyone with the anon key can upload photos"
+  on storage.objects for insert with check (bucket_id = 'photos');

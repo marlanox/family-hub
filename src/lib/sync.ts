@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient";
+import { getSupabase } from "./supabaseClient";
 import { occurrenceKey } from "./schedule";
 import type {
   ActivityEvent,
@@ -103,7 +103,26 @@ function rowToTask(row: Record<string, unknown>): Task {
   };
 }
 
+/** Uploads to the public "photos" bucket and returns its public URL, or null on failure. */
+export async function uploadPhoto(file: File, memberId: string): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  try {
+    const path = `${memberId}-${Date.now()}`;
+    const { error } = await supabase.storage.from("photos").upload(path, file, {
+      upsert: true,
+      contentType: file.type || "image/jpeg",
+    });
+    if (error) return null;
+    const { data } = supabase.storage.from("photos").getPublicUrl(path);
+    return data.publicUrl;
+  } catch {
+    return null;
+  }
+}
+
 export async function createRemoteFamily(id: string, name: string) {
+  const supabase = getSupabase();
   if (!supabase) return false;
   try {
     const { error } = await supabase.from("families").insert({ id, name });
@@ -114,6 +133,7 @@ export async function createRemoteFamily(id: string, name: string) {
 }
 
 export async function pushMember(member: FamilyMember, familyId: string) {
+  const supabase = getSupabase();
   if (!supabase) return;
   try {
     await supabase.from("family_members").upsert(memberToRow(member, familyId));
@@ -123,6 +143,7 @@ export async function pushMember(member: FamilyMember, familyId: string) {
 }
 
 export async function pushTask(task: Task, familyId: string) {
+  const supabase = getSupabase();
   if (!supabase) return;
   try {
     await supabase.from("tasks").upsert(taskToRow(task, familyId));
@@ -138,6 +159,7 @@ export async function pushComplete(
   points: number,
   memberIds: string[],
 ) {
+  const supabase = getSupabase();
   if (!supabase) return null;
   try {
     const { data, error } = await supabase.rpc("complete_task_occurrence", {
@@ -155,6 +177,7 @@ export async function pushComplete(
 }
 
 export async function pushRefuse(taskId: string, dateISO: string, reason: string | undefined) {
+  const supabase = getSupabase();
   if (!supabase) return;
   try {
     await supabase.rpc("refuse_task_occurrence", {
@@ -168,6 +191,7 @@ export async function pushRefuse(taskId: string, dateISO: string, reason: string
 }
 
 export async function pushSnooze(taskId: string, dateISO: string, hours: number) {
+  const supabase = getSupabase();
   if (!supabase) return;
   try {
     await supabase.rpc("snooze_task_occurrence", {
@@ -180,7 +204,52 @@ export async function pushSnooze(taskId: string, dateISO: string, hours: number)
   }
 }
 
+export async function savePushSubscription(memberId: string, sub: PushSubscriptionJSON) {
+  const supabase = getSupabase();
+  if (!supabase || !sub.endpoint || !sub.keys) return false;
+  try {
+    const { error } = await supabase.from("push_subscriptions").upsert(
+      {
+        member_id: memberId,
+        endpoint: sub.endpoint,
+        p256dh: sub.keys.p256dh,
+        auth: sub.keys.auth,
+      },
+      { onConflict: "endpoint" },
+    );
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fans out a push notification to everyone in the family except
+ * `excludeMemberIds` (normally whoever just took the action — they don't
+ * need to be told about their own completion). Calls the "send-push"
+ * Edge Function — see supabase/functions/send-push for its code and
+ * docs/ARCHITECTURE.md "Notifications" for the deploy step this needs.
+ * Silently does nothing if that function isn't deployed yet.
+ */
+export async function notifyFamily(
+  familyId: string,
+  excludeMemberIds: string[],
+  title: string,
+  body: string,
+) {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  try {
+    await supabase.functions.invoke("send-push", {
+      body: { familyId, excludeMemberIds, title, body },
+    });
+  } catch {
+    // Function not deployed, or offline — notifications are a bonus.
+  }
+}
+
 export async function pushActivity(event: ActivityEvent, familyId: string) {
+  const supabase = getSupabase();
   if (!supabase) return;
   try {
     await supabase.from("family_activity").insert({
@@ -197,6 +266,7 @@ export async function pushActivity(event: ActivityEvent, familyId: string) {
 }
 
 export async function fetchSnapshot(familyId: string): Promise<RemoteSnapshot | null> {
+  const supabase = getSupabase();
   if (!supabase) return null;
   let familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes;
   try {
