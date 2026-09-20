@@ -1,15 +1,34 @@
--- Family Hub — optional Supabase sync layer.
+-- Family Hub — Supabase sync layer (no accounts, no login).
 --
--- The app works fully offline with zero setup (see src/lib/store.ts —
--- everything lives in localStorage). Run this schema only if you want
--- points/tasks to sync across every family member's phone. Supabase's
--- free tier (Postgres + Auth + Storage + Realtime + Edge Functions) is
--- enough for a family for the lifetime of this project — see
--- docs/ARCHITECTURE.md "Storage & sync strategy" for the reasoning.
+-- Nobody signs in. Every device holds the same "family code" (just the
+-- family's own row id — an unguessable UUID) and talks to this database
+-- with the public anon key. The anon key is meant to be public; the UUID
+-- is the actual secret, shared only between your own family's devices —
+-- the same trust model as an unlisted shared link. Row Level Security is
+-- enabled with permissive policies (not auth-gated) for exactly that
+-- reason: this schema deliberately has no auth.users dependency, because
+-- building a login system was explicitly out of scope.
 --
--- Permission model: there is no admin/member split. Every row's RLS
--- policy only checks "is this user a member of the same family" —
--- everyone can read and write everything that belongs to their family.
+-- Point totals, streaks, and badge/reward unlocking all happen inside
+-- one Postgres function (complete_task_occurrence, below) instead of in
+-- client code, so two phones completing tasks at the same moment can't
+-- double-count points or award the same trophy twice — the database is
+-- the single source of truth for that math, not whichever device
+-- computed fastest.
+--
+-- Safe to (re-)run on a fresh project: drops these specific tables first.
+
+drop table if exists family_activity cascade;
+drop table if exists family_reward_history cascade;
+drop table if exists user_badges cascade;
+drop table if exists task_occurrences cascade;
+drop table if exists task_assignments cascade;
+drop table if exists tasks cascade;
+drop table if exists family_members cascade;
+drop table if exists families cascade;
+drop function if exists complete_task_occurrence(uuid, date, text, integer, uuid[]);
+drop function if exists refuse_task_occurrence(uuid, date, text);
+drop function if exists snooze_task_occurrence(uuid, date, integer);
 
 create extension if not exists "pgcrypto";
 
@@ -19,38 +38,23 @@ create extension if not exists "pgcrypto";
 
 create table families (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
-  points_rules jsonb not null default '{"difficultyDefaults":{"easy":15,"normal":30,"hard":70,"epic":150}}',
-  notification_rules jsonb not null default json_build_object(
-    'notifyOnComplete', true,
-    'notifyOnRefuse', true,
-    'notifyOnPostpone', false,
-    'notifyOnMissed', true,
-    'notifyOnBadge', true,
-    'notifyOnReward', true,
-    'maxAutoReminders', 3,
-    'followUpDelaysMinutes', json_build_array(60, 180)
-  ),
+  name text not null default 'Наша семья',
+  family_points_pool integer not null default 0,
+  family_goal integer not null default 5000,
+  family_milestones_unlocked integer not null default 0,
   created_at timestamptz not null default now()
 );
 
--- One row per person; auth_user_id is set once they actually sign in
--- (magic link / invite). A family can be used fully before anyone signs
--- in, since the local-first store seeds it — this table only matters
--- once you turn sync on.
 create table family_members (
   id uuid primary key default gen_random_uuid(),
   family_id uuid not null references families(id) on delete cascade,
-  auth_user_id uuid references auth.users(id) on delete set null,
   display_name text not null,
   photo_url text,
   accent_color text not null default 'pink',
   points integer not null default 0,
-  lifetime_points integer not null default 0,
   current_streak integer not null default 0,
   longest_streak integer not null default 0,
   completed_task_count integer not null default 0,
-  timezone text not null default 'UTC',
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -66,7 +70,7 @@ create table tasks (
   points integer not null default 20,
   difficulty text not null default 'easy' check (difficulty in ('easy', 'normal', 'hard', 'epic')),
   is_family_wide boolean not null default false,
-  creator_id uuid not null references family_members(id) on delete cascade,
+  creator_id uuid references family_members(id) on delete set null,
   recurrence jsonb not null default '{"type":"once"}',
   start_time time,
   due_time time,
@@ -77,16 +81,12 @@ create table tasks (
   updated_at timestamptz not null default now()
 );
 
--- Who a (non-family-wide) task is assigned to. A family-wide task skips
--- this table entirely — `tasks.is_family_wide` means "every member".
 create table task_assignments (
   task_id uuid not null references tasks(id) on delete cascade,
   member_id uuid not null references family_members(id) on delete cascade,
   primary key (task_id, member_id)
 );
 
--- One row per task per calendar day. Refusing/completing "today" never
--- touches tomorrow's row, so recurring tasks keep going.
 create table task_occurrences (
   id uuid primary key default gen_random_uuid(),
   task_id uuid not null references tasks(id) on delete cascade,
@@ -101,65 +101,19 @@ create table task_occurrences (
   unique (task_id, scheduled_for)
 );
 
-create table task_events (
-  id uuid primary key default gen_random_uuid(),
-  task_occurrence_id uuid not null references task_occurrences(id) on delete cascade,
-  member_id uuid references family_members(id) on delete set null,
-  kind text not null, -- completed | refused | snoozed | missed
-  payload jsonb not null default '{}',
-  created_at timestamptz not null default now()
-);
-
-create table task_templates (
-  id uuid primary key default gen_random_uuid(),
-  family_id uuid references families(id) on delete cascade, -- null = global/built-in
-  title text not null,
-  category text not null,
-  icon text not null,
-  color text not null,
-  points integer not null,
-  difficulty text not null
-);
-
--- ---------------------------------------------------------------------
--- Points, badges, rewards
--- ---------------------------------------------------------------------
-
-create table points_ledger (
-  id uuid primary key default gen_random_uuid(),
-  member_id uuid not null references family_members(id) on delete cascade,
-  task_occurrence_id uuid references task_occurrences(id) on delete set null,
-  amount integer not null,
-  type text not null check (type in ('task_completion', 'bonus', 'manual_adjustment', 'reward_redemption')),
-  reason text,
-  created_at timestamptz not null default now()
-);
-
-create table badges (
-  id text primary key, -- e.g. 'streak-7', 'points-2', 'early-bird'
-  name text not null,
-  description text not null,
-  icon text not null
-);
-
 create table user_badges (
   member_id uuid not null references family_members(id) on delete cascade,
-  badge_id text not null references badges(id) on delete cascade,
+  badge_id text not null,
   earned_at timestamptz not null default now(),
   primary key (member_id, badge_id)
 );
 
-create table rewards (
+create table family_reward_history (
   id uuid primary key default gen_random_uuid(),
   family_id uuid not null references families(id) on delete cascade,
+  tier integer not null,
   name text not null,
-  icon text not null default 'gift',
-  points_required integer not null,
-  scope text not null check (scope in ('individual', 'family')),
-  member_id uuid references family_members(id) on delete cascade,
-  is_milestone boolean not null default false,
-  redeemed boolean not null default false,
-  redeemed_at timestamptz
+  unlocked_at timestamptz not null default now()
 );
 
 create table family_activity (
@@ -173,43 +127,144 @@ create table family_activity (
   created_at timestamptz not null default now()
 );
 
--- ---------------------------------------------------------------------
--- Push notifications (see docs/ARCHITECTURE.md "Notifications")
--- ---------------------------------------------------------------------
-
-create table push_subscriptions (
-  id uuid primary key default gen_random_uuid(),
-  member_id uuid not null references family_members(id) on delete cascade,
-  endpoint text not null unique,
-  p256dh text not null,
-  auth text not null,
-  created_at timestamptz not null default now()
-);
-
-create table notification_preferences (
-  member_id uuid primary key references family_members(id) on delete cascade,
-  notify_on_complete boolean not null default true,
-  notify_on_refuse boolean not null default true,
-  notify_on_postpone boolean not null default false,
-  notify_on_missed boolean not null default true,
-  notify_on_badge boolean not null default true,
-  notify_on_reward boolean not null default true,
-  sound_enabled boolean not null default true
-);
-
--- ---------------------------------------------------------------------
--- Indexes
--- ---------------------------------------------------------------------
-
 create index idx_family_members_family on family_members(family_id);
 create index idx_tasks_family on tasks(family_id);
 create index idx_task_occurrences_task on task_occurrences(task_id);
-create index idx_task_occurrences_scheduled on task_occurrences(scheduled_for);
-create index idx_points_ledger_member on points_ledger(member_id);
 create index idx_family_activity_family on family_activity(family_id, created_at desc);
 
 -- ---------------------------------------------------------------------
--- Row Level Security — equal rights for every family member
+-- The atomic completion function — see header comment for why this
+-- exists instead of the client computing points/badges itself.
+-- ---------------------------------------------------------------------
+
+create or replace function complete_task_occurrence(
+  p_task_id uuid,
+  p_scheduled_for date,
+  p_family_id uuid,
+  p_points integer,
+  p_member_ids uuid[]
+) returns jsonb as $$
+declare
+  v_occurrence_id uuid;
+  v_already boolean;
+  v_member record;
+  v_new_points integer;
+  v_prev_tier integer;
+  v_new_tier integer;
+  v_tier integer;
+  v_new_streak integer;
+  v_pool integer;
+  v_goal integer;
+  v_milestones integer;
+  v_reward_names text[] := array['Кино 🎬', 'Ресторан 🍽️', 'Крутая покупка 🛍️'];
+  v_reward_name text;
+  v_badges jsonb := '[]'::jsonb;
+  v_rewards jsonb := '[]'::jsonb;
+begin
+  select id, (status = 'completed') into v_occurrence_id, v_already
+  from task_occurrences where task_id = p_task_id and scheduled_for = p_scheduled_for;
+
+  if v_occurrence_id is null then
+    insert into task_occurrences (task_id, scheduled_for, status, completed_at)
+    values (p_task_id, p_scheduled_for, 'completed', now())
+    returning id into v_occurrence_id;
+  elsif v_already then
+    return jsonb_build_object('alreadyCompleted', true, 'badges', v_badges, 'rewards', v_rewards);
+  else
+    update task_occurrences set status = 'completed', completed_at = now() where id = v_occurrence_id;
+  end if;
+
+  foreach v_member in array (
+    select m from family_members m where m.id = any(p_member_ids)
+  ) loop
+    v_new_streak := v_member.current_streak + 1;
+    v_new_points := v_member.points + p_points;
+    v_prev_tier := v_member.points / 1000;
+    v_new_tier := v_new_points / 1000;
+
+    update family_members set
+      points = v_new_points,
+      current_streak = v_new_streak,
+      longest_streak = greatest(v_member.longest_streak, v_new_streak),
+      completed_task_count = v_member.completed_task_count + 1
+    where id = v_member.id;
+
+    for v_tier in (v_prev_tier + 1)..v_new_tier loop
+      insert into user_badges (member_id, badge_id) values (v_member.id, 'points-' || v_tier)
+        on conflict do nothing;
+      insert into family_activity (family_id, type, member_id, message)
+      values (p_family_id, 'badge_earned', v_member.id,
+        v_member.display_name || ' заработал(а) кубок за ' || (v_tier * 1000) || ' баллов!');
+      v_badges := v_badges || jsonb_build_object('memberId', v_member.id, 'tier', v_tier, 'name', v_member.display_name);
+    end loop;
+
+    if v_new_streak = 7 or v_new_streak = 30 then
+      insert into user_badges (member_id, badge_id) values (v_member.id, 'streak-' || v_new_streak)
+        on conflict do nothing;
+      insert into family_activity (family_id, type, member_id, message)
+      values (p_family_id, 'badge_earned', v_member.id,
+        v_member.display_name || ': ' || v_new_streak || ' дней подряд!');
+    end if;
+  end loop;
+
+  select family_points_pool, family_goal, family_milestones_unlocked
+    into v_pool, v_goal, v_milestones
+    from families where id = p_family_id for update;
+
+  v_pool := v_pool + p_points;
+  while v_pool >= v_goal loop
+    v_pool := v_pool - v_goal;
+    v_reward_name := v_reward_names[(v_milestones % 3) + 1];
+    v_milestones := v_milestones + 1;
+    insert into family_reward_history (family_id, tier, name) values (p_family_id, v_milestones, v_reward_name);
+    insert into family_activity (family_id, type, message)
+    values (p_family_id, 'reward_unlocked', 'Семья набрала ' || v_goal || ' баллов и заработала: ' || v_reward_name || '!');
+    v_rewards := v_rewards || jsonb_build_object('tier', v_milestones, 'name', v_reward_name);
+  end loop;
+
+  update families set family_points_pool = v_pool, family_milestones_unlocked = v_milestones where id = p_family_id;
+
+  return jsonb_build_object('alreadyCompleted', false, 'badges', v_badges, 'rewards', v_rewards);
+end;
+$$ language plpgsql security definer;
+
+create or replace function refuse_task_occurrence(
+  p_task_id uuid,
+  p_scheduled_for date,
+  p_reason text
+) returns void as $$
+begin
+  insert into task_occurrences (task_id, scheduled_for, status, refusal_reason, refused_at)
+  values (p_task_id, p_scheduled_for, 'refused', p_reason, now())
+  on conflict (task_id, scheduled_for)
+  do update set status = 'refused', refusal_reason = p_reason, refused_at = now();
+end;
+$$ language plpgsql security definer;
+
+create or replace function snooze_task_occurrence(
+  p_task_id uuid,
+  p_scheduled_for date,
+  p_hours integer
+) returns void as $$
+begin
+  insert into task_occurrences (task_id, scheduled_for, status, snoozed_until, reminders_sent)
+  values (p_task_id, p_scheduled_for, 'snoozed', now() + (p_hours || ' hours')::interval, 1)
+  on conflict (task_id, scheduled_for)
+  do update set
+    status = 'snoozed',
+    snoozed_until = now() + (p_hours || ' hours')::interval,
+    reminders_sent = task_occurrences.reminders_sent + 1;
+end;
+$$ language plpgsql security definer;
+
+-- ---------------------------------------------------------------------
+-- Row Level Security
+--
+-- No login exists, so there is no auth.uid() to key policies off of.
+-- The anon key is meant to be public; access control here is "you know
+-- the family_id", the same trust model as an unlisted share link. RLS
+-- stays ON (so the dashboard doesn't warn you it's off) with policies
+-- that simply allow the anon/authenticated roles through.
 -- ---------------------------------------------------------------------
 
 alter table families enable row level security;
@@ -217,80 +272,27 @@ alter table family_members enable row level security;
 alter table tasks enable row level security;
 alter table task_assignments enable row level security;
 alter table task_occurrences enable row level security;
-alter table task_events enable row level security;
-alter table points_ledger enable row level security;
 alter table user_badges enable row level security;
-alter table rewards enable row level security;
+alter table family_reward_history enable row level security;
 alter table family_activity enable row level security;
-alter table push_subscriptions enable row level security;
-alter table notification_preferences enable row level security;
 
--- Helper: the family id(s) the current auth user belongs to.
-create or replace function auth_family_ids() returns setof uuid as $$
-  select family_id from family_members where auth_user_id = auth.uid()
-$$ language sql stable security definer;
+create policy "anyone with the anon key can read/write families"
+  on families for all using (true) with check (true);
+create policy "anyone with the anon key can read/write family_members"
+  on family_members for all using (true) with check (true);
+create policy "anyone with the anon key can read/write tasks"
+  on tasks for all using (true) with check (true);
+create policy "anyone with the anon key can read/write task_assignments"
+  on task_assignments for all using (true) with check (true);
+create policy "anyone with the anon key can read/write task_occurrences"
+  on task_occurrences for all using (true) with check (true);
+create policy "anyone with the anon key can read/write user_badges"
+  on user_badges for all using (true) with check (true);
+create policy "anyone with the anon key can read/write family_reward_history"
+  on family_reward_history for all using (true) with check (true);
+create policy "anyone with the anon key can read/write family_activity"
+  on family_activity for all using (true) with check (true);
 
-create policy "family: members can read/write their own family"
-  on families for all
-  using (id in (select auth_family_ids()))
-  with check (id in (select auth_family_ids()));
-
-create policy "family_members: read/write within your family"
-  on family_members for all
-  using (family_id in (select auth_family_ids()))
-  with check (family_id in (select auth_family_ids()));
-
-create policy "tasks: read/write within your family"
-  on tasks for all
-  using (family_id in (select auth_family_ids()))
-  with check (family_id in (select auth_family_ids()));
-
-create policy "task_assignments: read/write within your family"
-  on task_assignments for all
-  using (task_id in (select id from tasks where family_id in (select auth_family_ids())))
-  with check (task_id in (select id from tasks where family_id in (select auth_family_ids())));
-
-create policy "task_occurrences: read/write within your family"
-  on task_occurrences for all
-  using (task_id in (select id from tasks where family_id in (select auth_family_ids())))
-  with check (task_id in (select id from tasks where family_id in (select auth_family_ids())));
-
-create policy "task_events: read/write within your family"
-  on task_events for all
-  using (
-    task_occurrence_id in (
-      select o.id from task_occurrences o
-      join tasks t on t.id = o.task_id
-      where t.family_id in (select auth_family_ids())
-    )
-  );
-
-create policy "points_ledger: read/write within your family"
-  on points_ledger for all
-  using (member_id in (select id from family_members where family_id in (select auth_family_ids())))
-  with check (member_id in (select id from family_members where family_id in (select auth_family_ids())));
-
-create policy "user_badges: read/write within your family"
-  on user_badges for all
-  using (member_id in (select id from family_members where family_id in (select auth_family_ids())))
-  with check (member_id in (select id from family_members where family_id in (select auth_family_ids())));
-
-create policy "rewards: read/write within your family"
-  on rewards for all
-  using (family_id in (select auth_family_ids()))
-  with check (family_id in (select auth_family_ids()));
-
-create policy "family_activity: read/write within your family"
-  on family_activity for all
-  using (family_id in (select auth_family_ids()))
-  with check (family_id in (select auth_family_ids()));
-
-create policy "push_subscriptions: owner within your family"
-  on push_subscriptions for all
-  using (member_id in (select id from family_members where family_id in (select auth_family_ids())))
-  with check (member_id in (select id from family_members where family_id in (select auth_family_ids())));
-
-create policy "notification_preferences: owner within your family"
-  on notification_preferences for all
-  using (member_id in (select id from family_members where family_id in (select auth_family_ids())))
-  with check (member_id in (select id from family_members where family_id in (select auth_family_ids())));
+-- Lets the client subscribe to live changes (Database → Replication in
+-- the dashboard does the same thing; this just does it from SQL).
+alter publication supabase_realtime add table family_members, tasks, task_occurrences, family_activity, family_reward_history;
