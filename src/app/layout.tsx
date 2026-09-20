@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Unbounded, Inter } from "next/font/google";
 import { CelebrationToast } from "@/components/CelebrationToast";
 import { OnboardingGate } from "@/components/OnboardingGate";
+import { RemoteSync } from "@/components/RemoteSync";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { StoreHydrator } from "@/components/StoreHydrator";
 import "./globals.css";
@@ -66,6 +67,7 @@ export default function RootLayout({
         <CelebrationToast />
         <ServiceWorkerRegister />
         <StoreHydrator />
+        <RemoteSync />
       </body>
     </html>
   );

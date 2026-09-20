@@ -4,6 +4,16 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { isScheduledOn, occurrenceKey, todayISO } from "./schedule";
 import { playSound } from "./sound";
+import {
+  createRemoteFamily,
+  fetchSnapshot,
+  pushActivity,
+  pushComplete,
+  pushMember,
+  pushRefuse,
+  pushSnooze,
+  pushTask,
+} from "./sync";
 import type {
   ActivityEvent,
   Difficulty,
@@ -90,6 +100,9 @@ interface FamilyHubState {
   onboardingComplete: boolean;
   hasHydrated: boolean;
   lastCelebration: Celebration | null;
+  familyCode: string | null;
+  lastSyncedAt: string | null;
+  syncing: boolean;
 
   occurrenceFor: (taskId: string, dateISO?: string) => OccurrenceRecord;
   todaysTasks: (dateISO?: string) => Task[];
@@ -106,6 +119,10 @@ interface FamilyHubState {
   setWhoAmI: (id: string | null) => void;
   finishOnboarding: () => void;
   resetAll: () => void;
+  enableSync: () => Promise<string | null>;
+  joinSync: (code: string) => Promise<boolean>;
+  pullSync: () => Promise<void>;
+  leaveSync: () => void;
   toggleSound: () => void;
   dismissCelebration: () => void;
   logActivity: (event: Omit<ActivityEvent, "id" | "familyId" | "createdAt">) => void;
@@ -144,6 +161,8 @@ const EMPTY_STATE = {
   familyRewardHistory: [] as FamilyRewardHistoryEntry[],
   whoAmI: null as string | null,
   onboardingComplete: false,
+  familyCode: null as string | null,
+  lastSyncedAt: null as string | null,
 };
 
 export const useFamilyStore = create<FamilyHubState>()(
@@ -153,6 +172,7 @@ export const useFamilyStore = create<FamilyHubState>()(
       soundEnabled: true,
       hasHydrated: false,
       lastCelebration: null,
+      syncing: false,
 
       occurrenceFor: (taskId, dateISO = todayISO()) => {
         const key = occurrenceKey(taskId, dateISO);
@@ -276,13 +296,29 @@ export const useFamilyStore = create<FamilyHubState>()(
           lastCelebration: celebrations[0] ?? state.lastCelebration,
         });
 
+        const completedMessage = `${names} выполнил(а) «${task.title}» (+${task.points})`;
         get().logActivity({
           type: "task_completed",
           memberId: members[0]?.id ?? task.creatorId,
           taskId: task.id,
           points: task.points,
-          message: `${names} выполнил(а) «${task.title}» (+${task.points})`,
+          message: completedMessage,
         });
+        if (state.familyCode) {
+          void pushActivity(
+            {
+              id: "",
+              familyId: state.familyCode,
+              type: "task_completed",
+              memberId: members[0]?.id ?? task.creatorId,
+              taskId: task.id,
+              points: task.points,
+              message: completedMessage,
+              createdAt: now,
+            },
+            state.familyCode,
+          );
+        }
         for (const badge of newlyEarned) {
           const owner = state.members.find((m) => m.id === badge.memberId);
           const label = badge.badgeId.startsWith("points-")
@@ -308,6 +344,10 @@ export const useFamilyStore = create<FamilyHubState>()(
           celebrations.some((c) => c.kind === "reward") ? "reward" : celebrations.length ? "badge" : "complete",
           get().soundEnabled,
         );
+
+        if (state.familyCode) {
+          void pushComplete(task.id, dateISO, state.familyCode, task.points, members.map((m) => m.id));
+        }
       },
 
       refuseTask: (taskId, reason, dateISO = todayISO()) => {
@@ -329,12 +369,29 @@ export const useFamilyStore = create<FamilyHubState>()(
           },
         });
 
+        const refusedMessage = `${names} отметил(а), что сегодня не будет делать «${task.title}»${reason ? ` (${reason})` : ""}`;
         get().logActivity({
           type: "task_refused",
           memberId: members[0]?.id ?? task.creatorId,
           taskId: task.id,
-          message: `${names} отметил(а), что сегодня не будет делать «${task.title}»${reason ? ` (${reason})` : ""}`,
+          message: refusedMessage,
         });
+
+        if (state.familyCode) {
+          void pushRefuse(taskId, dateISO, reason);
+          void pushActivity(
+            {
+              id: "",
+              familyId: state.familyCode,
+              type: "task_refused",
+              memberId: members[0]?.id ?? task.creatorId,
+              taskId: task.id,
+              message: refusedMessage,
+              createdAt: new Date().toISOString(),
+            },
+            state.familyCode,
+          );
+        }
       },
 
       snoozeTask: (taskId, hours, dateISO = todayISO()) => {
@@ -352,6 +409,10 @@ export const useFamilyStore = create<FamilyHubState>()(
             },
           },
         });
+
+        if (state.familyCode) {
+          void pushSnooze(taskId, dateISO, hours);
+        }
       },
 
       addTask: (input) => {
@@ -360,6 +421,8 @@ export const useFamilyStore = create<FamilyHubState>()(
         const task: Task = { id, familyId: FAMILY_ID, createdAt: now, updatedAt: now, ...input };
         set((state) => ({ tasks: [task, ...state.tasks] }));
         playSound("created", get().soundEnabled);
+        const code = get().familyCode;
+        if (code) void pushTask(task, code);
         return id;
       },
 
@@ -378,6 +441,8 @@ export const useFamilyStore = create<FamilyHubState>()(
           message: `${name} присоединил(ась) к семье`,
         });
         playSound("created", get().soundEnabled);
+        const code = get().familyCode;
+        if (code) void pushMember(member, code);
         return member.id;
       },
 
@@ -392,12 +457,75 @@ export const useFamilyStore = create<FamilyHubState>()(
         set((state) => ({
           members: state.members.map((m) => (m.id === id ? { ...m, photoUrl } : m)),
         }));
+        const code = get().familyCode;
+        const updated = get().members.find((m) => m.id === id);
+        if (code && updated) void pushMember(updated, code);
       },
 
       setWhoAmI: (id) => set({ whoAmI: id }),
       finishOnboarding: () => set({ onboardingComplete: true }),
 
       resetAll: () => set({ ...EMPTY_STATE }),
+
+      enableSync: async () => {
+        const state = get();
+        const code = newId("family");
+        const ok = await createRemoteFamily(code, "Наша семья");
+        if (!ok) return null;
+        set({ familyCode: code, lastSyncedAt: new Date().toISOString() });
+        await Promise.all(state.members.map((m) => pushMember(m, code)));
+        await Promise.all(state.tasks.map((t) => pushTask(t, code)));
+        return code;
+      },
+
+      joinSync: async (code) => {
+        set({ syncing: true });
+        const snapshot = await fetchSnapshot(code.trim());
+        if (!snapshot) {
+          set({ syncing: false });
+          return false;
+        }
+        set({
+          familyCode: code.trim(),
+          members: snapshot.members,
+          tasks: snapshot.tasks,
+          occurrences: snapshot.occurrences as FamilyHubState["occurrences"],
+          activity: snapshot.activity,
+          earnedBadges: snapshot.earnedBadges,
+          familyPoints: snapshot.familyPoints,
+          familyMilestonesUnlocked: snapshot.familyMilestonesUnlocked,
+          familyRewardHistory: snapshot.familyRewardHistory,
+          whoAmI: null,
+          lastSyncedAt: new Date().toISOString(),
+          syncing: false,
+        });
+        return true;
+      },
+
+      pullSync: async () => {
+        const code = get().familyCode;
+        if (!code) return;
+        set({ syncing: true });
+        const snapshot = await fetchSnapshot(code);
+        if (!snapshot) {
+          set({ syncing: false });
+          return;
+        }
+        set({
+          members: snapshot.members,
+          tasks: snapshot.tasks,
+          occurrences: snapshot.occurrences as FamilyHubState["occurrences"],
+          activity: snapshot.activity,
+          earnedBadges: snapshot.earnedBadges,
+          familyPoints: snapshot.familyPoints,
+          familyMilestonesUnlocked: snapshot.familyMilestonesUnlocked,
+          familyRewardHistory: snapshot.familyRewardHistory,
+          lastSyncedAt: new Date().toISOString(),
+          syncing: false,
+        });
+      },
+
+      leaveSync: () => set({ familyCode: null, lastSyncedAt: null }),
 
       toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
       dismissCelebration: () => set({ lastCelebration: null }),

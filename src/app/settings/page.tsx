@@ -4,6 +4,7 @@ import { ComicButton } from "@/components/ComicButton";
 import { ColorPicker } from "@/components/ColorPicker";
 import { Icon } from "@/components/Icon";
 import { playSound } from "@/lib/sound";
+import { isSupabaseConfigured } from "@/lib/supabaseClient";
 import { useFamilyStore } from "@/lib/store";
 import type { FamilyMember } from "@/lib/types";
 import { useRouter } from "next/navigation";
@@ -19,10 +20,20 @@ export default function SettingsPage() {
   const whoAmI = useFamilyStore((s) => s.whoAmI);
   const setWhoAmI = useFamilyStore((s) => s.setWhoAmI);
   const resetAll = useFamilyStore((s) => s.resetAll);
+  const familyCode = useFamilyStore((s) => s.familyCode);
+  const syncing = useFamilyStore((s) => s.syncing);
+  const enableSync = useFamilyStore((s) => s.enableSync);
+  const joinSync = useFamilyStore((s) => s.joinSync);
+  const leaveSync = useFamilyStore((s) => s.leaveSync);
+  const pullSync = useFamilyStore((s) => s.pullSync);
+  const lastSyncedAt = useFamilyStore((s) => s.lastSyncedAt);
   const me = members.find((m) => m.id === whoAmI);
 
   const [name, setName] = useState("");
   const [color, setColor] = useState<FamilyMember["accentColor"]>("mint");
+  const [joinCode, setJoinCode] = useState("");
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   return (
     <>
@@ -114,14 +125,87 @@ export default function SettingsPage() {
         </section>
 
         <section>
-          <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Где хранятся данные</h2>
-          <div className="space-y-2 rounded-2xl border-3 border-ink bg-white p-3 text-sm font-semibold shadow-pop-sm">
-            <p>
-              Сейчас всё хранится прямо на этом устройстве (офлайн, бесплатно, без аккаунта). Чтобы баллы и задачи
-              синхронизировались между телефонами всей семьи, подключите бесплатный Supabase-проект — инструкция в{" "}
-              <code className="rounded bg-paper px-1">README.md</code> репозитория.
-            </p>
-          </div>
+          <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Синхронизация между телефонами</h2>
+
+          {!isSupabaseConfigured && (
+            <div className="space-y-2 rounded-2xl border-3 border-ink bg-white p-3 text-sm font-semibold shadow-pop-sm">
+              <p>
+                Сейчас всё хранится только на этом устройстве (офлайн, бесплатно, без аккаунта). Чтобы баллы и
+                задачи синхронизировались между телефонами всей семьи, подключите бесплатный Supabase-проект —
+                инструкция в <code className="rounded bg-paper px-1">README.md</code> репозитория.
+              </p>
+            </div>
+          )}
+
+          {isSupabaseConfigured && !familyCode && (
+            <div className="space-y-3">
+              <p className="px-1 text-xs font-semibold text-ink/50">
+                Один человек создаёт код, остальные вводят его на своих телефонах — дальше баллы и задачи общие.
+              </p>
+              <ComicButton
+                variant="mint"
+                className="w-full"
+                onClick={async () => {
+                  await enableSync();
+                }}
+              >
+                Создать код синхронизации
+              </ComicButton>
+              <div className="rounded-2xl border-3 border-dashed border-ink/30 p-3 space-y-2">
+                <input
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value)}
+                  placeholder="Вставить код от другого телефона"
+                  className="w-full rounded-xl border-3 border-ink px-3 py-2 font-semibold outline-none"
+                />
+                <ComicButton
+                  variant="sky"
+                  className="w-full"
+                  disabled={syncing || !joinCode.trim()}
+                  onClick={async () => {
+                    setJoinError(null);
+                    const ok = await joinSync(joinCode.trim());
+                    if (!ok) setJoinError("Код не найден — проверьте, что скопировали точно.");
+                  }}
+                >
+                  {syncing ? "Подключаем…" : "Присоединиться по коду"}
+                </ComicButton>
+                {joinError && <p className="text-xs font-bold text-pink-deep">{joinError}</p>}
+              </div>
+            </div>
+          )}
+
+          {isSupabaseConfigured && familyCode && (
+            <div className="space-y-2">
+              <div className="rounded-2xl border-3 border-ink bg-mint p-3 shadow-pop-sm">
+                <p className="text-xs font-bold uppercase text-ink/60">Код вашей семьи</p>
+                <p className="mt-1 break-all font-display text-sm">{familyCode}</p>
+                <ComicButton
+                  variant="outline"
+                  className="mt-2 w-full !py-1.5 !text-xs"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(familyCode);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  }}
+                >
+                  {copied ? "Скопировано ✓" : "Скопировать код"}
+                </ComicButton>
+              </div>
+              <p className="px-1 text-[11px] font-semibold text-ink/40">
+                Введите этот код в настройках на других телефонах семьи. Обновляется автоматически каждые ~20 секунд,
+                пока приложение открыто{lastSyncedAt ? ` · последний раз: ${new Date(lastSyncedAt).toLocaleTimeString("ru-RU")}` : ""}.
+              </p>
+              <div className="flex gap-2">
+                <ComicButton variant="sky" className="flex-1 !text-xs" disabled={syncing} onClick={() => pullSync()}>
+                  {syncing ? "Обновляем…" : "Обновить сейчас"}
+                </ComicButton>
+                <ComicButton variant="outline" className="flex-1 !text-xs" onClick={() => confirm("Отключить синхронизацию на этом устройстве?") && leaveSync()}>
+                  Отключить
+                </ComicButton>
+              </div>
+            </div>
+          )}
         </section>
 
         <section>
