@@ -51,7 +51,14 @@ function TaskReminderContent() {
 
   if (confirmingRefuse) {
     return (
-      <main className="flex flex-1 flex-col bg-ink px-5 pb-8 pt-10 text-white">
+      <main className="flex flex-1 flex-col bg-ink px-5 pb-8 pt-6 text-white">
+        <button
+          onClick={() => setConfirmingRefuse(false)}
+          aria-label="Назад"
+          className="mb-4 mr-auto flex h-10 w-10 items-center justify-center rounded-full border-3 border-white/30 text-white"
+        >
+          <Icon name="back" className="h-5 w-5" />
+        </button>
         <p className="text-center font-display text-xl uppercase leading-tight">
           Ты точно не будешь делать?
         </p>
@@ -102,7 +109,14 @@ function TaskReminderContent() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center bg-ink px-6 pb-10 pt-14 text-center text-white">
+    <main className="flex flex-1 flex-col items-center bg-ink px-6 pb-10 pt-6 text-center text-white">
+      <button
+        onClick={() => router.back()}
+        aria-label="Назад"
+        className="mb-4 mr-auto flex h-10 w-10 items-center justify-center rounded-full border-3 border-white/30 text-white"
+      >
+        <Icon name="back" className="h-5 w-5" />
+      </button>
       <div className="halftone-dots relative flex h-36 w-36 items-center justify-center rounded-full border-3 border-white/30 bg-lilac/30 text-white/20">
         <span className="spike-burst absolute inset-2 bg-yellow/90" />
         <Icon name={task.icon} className="relative z-10 h-16 w-16 text-ink" />

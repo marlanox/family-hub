@@ -9,7 +9,8 @@ import { accentMap } from "@/lib/colors";
 import { todayISO } from "@/lib/schedule";
 import { useFamilyStore } from "@/lib/store";
 import type { IconKey } from "@/lib/types";
-import { useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useRef, useState } from "react";
 
 const BADGE_LABELS: Record<string, { emoji: string; name: string }> = {
   "early-bird": { emoji: "🌅", name: "Ранняя пташка" },
@@ -29,14 +30,24 @@ function badgeLabel(id: string) {
 type Tab = "tasks" | "achievements" | "stats";
 
 export default function ProfilePage() {
+  return (
+    <Suspense fallback={null}>
+      <ProfileContent />
+    </Suspense>
+  );
+}
+
+function ProfileContent() {
+  const preselected = useSearchParams().get("member");
   const members = useFamilyStore((s) => s.members);
   const tasks = useFamilyStore((s) => s.todaysTasks());
   const occurrences = useFamilyStore((s) => s.occurrences);
   const earnedBadges = useFamilyStore((s) => s.earnedBadges);
   const completeTask = useFamilyStore((s) => s.completeTask);
   const updateMemberPhoto = useFamilyStore((s) => s.updateMemberPhoto);
+  const whoAmI = useFamilyStore((s) => s.whoAmI);
 
-  const [selectedId, setSelectedId] = useState(members[0]?.id);
+  const [selectedId, setSelectedId] = useState(preselected ?? members[0]?.id);
   const [tab, setTab] = useState<Tab>("tasks");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -62,19 +73,24 @@ export default function ProfilePage() {
       <header className={`rounded-torn border-b-3 border-ink px-4 pb-6 pt-6 ${accentMap[member.accentColor].bgSoft}`}>
         <div className="flex justify-center gap-2">
           {members.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setSelectedId(m.id)}
-              className={`h-10 w-10 overflow-hidden rounded-full border-3 border-ink ${
-                m.id === member.id ? "opacity-100" : "opacity-40"
-              }`}
-            >
-              {m.photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={m.photoUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center bg-white font-display text-xs">
-                  {m.displayName.charAt(0)}
+            <button key={m.id} onClick={() => setSelectedId(m.id)} className="relative">
+              <span
+                className={`block h-10 w-10 overflow-hidden rounded-full border-3 border-ink ${
+                  m.id === member.id ? "opacity-100" : "opacity-40"
+                }`}
+              >
+                {m.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={m.photoUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center bg-white font-display text-xs">
+                    {m.displayName.charAt(0)}
+                  </span>
+                )}
+              </span>
+              {m.id === whoAmI && (
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full border-2 border-ink bg-mint px-1 text-[8px] font-bold uppercase leading-tight">
+                  ты
                 </span>
               )}
             </button>
@@ -175,7 +191,7 @@ export default function ProfilePage() {
         {tab === "stats" && (
           <div className="space-y-2">
             <StatRow icon="star" label="Место в рейтинге" value={`#${rank}`} />
-            <StatRow icon="trophy" label="Баллов всего заработано" value={member.lifetimePoints} />
+            <StatRow icon="trophy" label="Баллов всего заработано" value={member.points} />
             <StatRow icon="checklist" label="Задач выполнено" value={member.completedTaskCount} />
             <StatRow icon="alarm" label="Лучшая серия дней" value={member.longestStreak} />
           </div>

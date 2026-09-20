@@ -2,7 +2,6 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { demoFamily, demoMembers, demoTasksToday } from "./demoData";
 import { isScheduledOn, occurrenceKey, todayISO } from "./schedule";
 import { playSound } from "./sound";
 import type {
@@ -13,10 +12,19 @@ import type {
   IconKey,
   OccurrenceStatus,
   Recurrence,
-  Reward,
   Task,
   TaskAssignee,
 } from "./types";
+
+const FAMILY_ID = "local-family";
+const FAMILY_GOAL = 5000;
+// The family goal keeps paying out a different kind of reward each time
+// it's hit — see docs/ARCHITECTURE.md "Points & rewards".
+const FAMILY_REWARD_ROTATION = ["Кино 🎬", "Ресторан 🍽️", "Крутая покупка 🛍️"];
+
+function nextFamilyRewardName(tier: number) {
+  return FAMILY_REWARD_ROTATION[tier % FAMILY_REWARD_ROTATION.length]!;
+}
 
 function newId(prefix: string) {
   const rand =
@@ -60,31 +68,44 @@ interface Celebration {
   kind: "badge" | "reward";
 }
 
+interface FamilyRewardHistoryEntry {
+  tier: number;
+  name: string;
+  unlockedAt: string;
+}
+
+const ACCENT_CYCLE: FamilyMember["accentColor"][] = ["pink", "sky", "lilac", "mint", "yellow", "coral"];
+
 interface FamilyHubState {
   members: FamilyMember[];
   tasks: Task[];
   occurrences: Record<string, OccurrenceRecord>;
   activity: ActivityEvent[];
-  rewards: Reward[];
   earnedBadges: EarnedBadge[];
   familyPoints: number;
   familyMilestonesUnlocked: number;
+  familyRewardHistory: FamilyRewardHistoryEntry[];
   soundEnabled: boolean;
+  whoAmI: string | null;
+  onboardingComplete: boolean;
+  hasHydrated: boolean;
   lastCelebration: Celebration | null;
 
   occurrenceFor: (taskId: string, dateISO?: string) => OccurrenceRecord;
   todaysTasks: (dateISO?: string) => Task[];
+  currentFamilyRewardName: () => string;
 
   completeTask: (taskId: string, dateISO?: string) => void;
   refuseTask: (taskId: string, reason: string | undefined, dateISO?: string) => void;
   snoozeTask: (taskId: string, hours: number, dateISO?: string) => void;
   addTask: (input: NewTaskInput) => string;
   removeTask: (taskId: string) => void;
-  addMember: (name: string, accentColor: FamilyMember["accentColor"]) => string;
+  addMember: (name: string, accentColor?: FamilyMember["accentColor"]) => string;
   removeMember: (id: string) => void;
   updateMemberPhoto: (id: string, photoUrl: string | null) => void;
-  redeemReward: (id: string) => void;
-  addReward: (input: Omit<Reward, "id" | "familyId" | "redeemed" | "redeemedAt">) => void;
+  setWhoAmI: (id: string | null) => void;
+  finishOnboarding: () => void;
+  resetAll: () => void;
   toggleSound: () => void;
   dismissCelebration: () => void;
   logActivity: (event: Omit<ActivityEvent, "id" | "familyId" | "createdAt">) => void;
@@ -95,49 +116,42 @@ function assigneeMembers(assignee: TaskAssignee, members: FamilyMember[]): Famil
   return members.filter((m) => assignee.memberIds.includes(m.id));
 }
 
-const defaultRewards: Reward[] = [
-  {
-    id: "r-family-1000",
-    familyId: demoFamily.id,
-    name: "Мини-подарок от семьи",
-    icon: "gift",
-    pointsRequired: 1000,
-    scope: "family",
-    redeemed: false,
-    isMilestone: true,
-  },
-  {
-    id: "r-dessert",
-    familyId: demoFamily.id,
-    name: "Выбрать десерт на ужин",
-    icon: "food",
-    pointsRequired: 150,
-    scope: "individual",
-    redeemed: false,
-  },
-  {
-    id: "r-movie",
-    familyId: demoFamily.id,
-    name: "Кино всей семьёй",
-    icon: "star",
-    pointsRequired: 500,
-    scope: "family",
-    redeemed: false,
-  },
-];
+function freshMember(name: string, accentColor: FamilyMember["accentColor"]): FamilyMember {
+  return {
+    id: newId("member"),
+    familyId: FAMILY_ID,
+    displayName: name,
+    photoUrl: null,
+    accentColor,
+    points: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    completedTaskCount: 0,
+    timezone: typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC",
+    active: true,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+const EMPTY_STATE = {
+  members: [] as FamilyMember[],
+  tasks: [] as Task[],
+  occurrences: {} as Record<string, OccurrenceRecord>,
+  activity: [] as ActivityEvent[],
+  earnedBadges: [] as EarnedBadge[],
+  familyPoints: 0,
+  familyMilestonesUnlocked: 0,
+  familyRewardHistory: [] as FamilyRewardHistoryEntry[],
+  whoAmI: null as string | null,
+  onboardingComplete: false,
+};
 
 export const useFamilyStore = create<FamilyHubState>()(
   persist(
     (set, get) => ({
-      members: demoMembers,
-      tasks: demoTasksToday,
-      occurrences: {},
-      activity: [],
-      rewards: defaultRewards,
-      earnedBadges: [],
-      familyPoints: 710,
-      familyMilestonesUnlocked: 0,
+      ...EMPTY_STATE,
       soundEnabled: true,
+      hasHydrated: false,
       lastCelebration: null,
 
       occurrenceFor: (taskId, dateISO = todayISO()) => {
@@ -150,13 +164,15 @@ export const useFamilyStore = create<FamilyHubState>()(
         return get().tasks.filter((t) => isScheduledOn(t, date));
       },
 
+      currentFamilyRewardName: () => nextFamilyRewardName(get().familyMilestonesUnlocked),
+
       logActivity: (event) => {
         set((state) => ({
           activity: [
             {
               ...event,
               id: newId("activity"),
-              familyId: demoFamily.id,
+              familyId: FAMILY_ID,
               createdAt: new Date().toISOString(),
             },
             ...state.activity,
@@ -180,21 +196,16 @@ export const useFamilyStore = create<FamilyHubState>()(
         const updatedMembers = state.members.map((m) => {
           if (!members.some((am) => am.id === m.id)) return m;
           const nextStreak = m.currentStreak + 1;
-          const nextLifetime = m.lifetimePoints + task.points;
-          const prevTier = Math.floor(m.lifetimePoints / 1000);
-          const nextTier = Math.floor(nextLifetime / 1000);
+          const newPoints = m.points + task.points;
+          const prevTier = Math.floor(m.points / 1000);
+          const newTier = Math.floor(newPoints / 1000);
 
-          if (nextTier > prevTier) {
-            const badge: EarnedBadge = {
-              memberId: m.id,
-              badgeId: `points-${nextTier}`,
-              earnedAt: now,
-            };
-            newlyEarned.push(badge);
+          for (let tier = prevTier + 1; tier <= newTier; tier++) {
+            newlyEarned.push({ memberId: m.id, badgeId: `points-${tier}`, earnedAt: now });
             celebrations.push({
               key: newId("cel"),
-              emoji: "🎉",
-              title: `${m.displayName} набрал(а) ${nextTier * 1000} баллов!`,
+              emoji: "🏆",
+              title: `${m.displayName} заработал(а) кубок за ${tier * 1000} баллов!`,
               subtitle: "Новый личный рубеж — так держать",
               kind: "badge",
             });
@@ -227,8 +238,7 @@ export const useFamilyStore = create<FamilyHubState>()(
 
           return {
             ...m,
-            points: m.points + task.points,
-            lifetimePoints: nextLifetime,
+            points: newPoints,
             currentStreak: nextStreak,
             longestStreak: Math.max(m.longestStreak, nextStreak),
             completedTaskCount: m.completedTaskCount + 1,
@@ -237,14 +247,17 @@ export const useFamilyStore = create<FamilyHubState>()(
 
         let familyPoints = state.familyPoints + task.points;
         let familyMilestonesUnlocked = state.familyMilestonesUnlocked;
-        while (familyPoints >= 1000) {
-          familyPoints -= 1000;
+        const familyRewardHistory = [...state.familyRewardHistory];
+        while (familyPoints >= FAMILY_GOAL) {
+          familyPoints -= FAMILY_GOAL;
+          const rewardName = nextFamilyRewardName(familyMilestonesUnlocked);
           familyMilestonesUnlocked += 1;
+          familyRewardHistory.unshift({ tier: familyMilestonesUnlocked, name: rewardName, unlockedAt: now });
           celebrations.push({
             key: newId("cel"),
-            emoji: "🎁",
-            title: "Семья набрала 1000 баллов!",
-            subtitle: "Загляните в «Награды» — там подарок",
+            emoji: "🎉",
+            title: `Семья заработала: ${rewardName}!`,
+            subtitle: `Общая цель ${FAMILY_GOAL} баллов выполнена — не забудьте порадовать друг друга`,
             kind: "reward",
           });
         }
@@ -254,6 +267,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           members: updatedMembers,
           familyPoints,
           familyMilestonesUnlocked,
+          familyRewardHistory,
           occurrences: {
             ...state.occurrences,
             [key]: { status: "completed", completedAt: now, remindersSent: 0 },
@@ -269,8 +283,31 @@ export const useFamilyStore = create<FamilyHubState>()(
           points: task.points,
           message: `${names} выполнил(а) «${task.title}» (+${task.points})`,
         });
+        for (const badge of newlyEarned) {
+          const owner = state.members.find((m) => m.id === badge.memberId);
+          const label = badge.badgeId.startsWith("points-")
+            ? `кубок за ${Number(badge.badgeId.split("-")[1]) * 1000} баллов`
+            : badge.badgeId.startsWith("streak-")
+              ? `значок «${badge.badgeId.split("-")[1]} дней подряд»`
+              : "значок «Ранняя пташка»";
+          get().logActivity({
+            type: "badge_earned",
+            memberId: badge.memberId,
+            message: `${owner?.displayName ?? ""} получил(а) ${label}`,
+          });
+        }
+        if (familyMilestonesUnlocked > state.familyMilestonesUnlocked) {
+          get().logActivity({
+            type: "reward_unlocked",
+            memberId: members[0]?.id ?? task.creatorId,
+            message: `Семья набрала ${FAMILY_GOAL} баллов и заработала: ${familyRewardHistory[0]?.name}!`,
+          });
+        }
 
-        playSound(celebrations.some((c) => c.kind === "reward") ? "reward" : celebrations.length ? "badge" : "complete", get().soundEnabled);
+        playSound(
+          celebrations.some((c) => c.kind === "reward") ? "reward" : celebrations.length ? "badge" : "complete",
+          get().soundEnabled,
+        );
       },
 
       refuseTask: (taskId, reason, dateISO = todayISO()) => {
@@ -320,7 +357,7 @@ export const useFamilyStore = create<FamilyHubState>()(
       addTask: (input) => {
         const id = newId("task");
         const now = new Date().toISOString();
-        const task: Task = { id, familyId: demoFamily.id, createdAt: now, updatedAt: now, ...input };
+        const task: Task = { id, familyId: FAMILY_ID, createdAt: now, updatedAt: now, ...input };
         set((state) => ({ tasks: [task, ...state.tasks] }));
         playSound("created", get().soundEnabled);
         return id;
@@ -331,34 +368,24 @@ export const useFamilyStore = create<FamilyHubState>()(
       },
 
       addMember: (name, accentColor) => {
-        const id = newId("member");
-        const member: FamilyMember = {
-          id,
-          familyId: demoFamily.id,
-          displayName: name,
-          photoUrl: null,
-          accentColor,
-          points: 0,
-          lifetimePoints: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          completedTaskCount: 0,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          active: true,
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({ members: [...state.members, member] }));
+        const state = get();
+        const color = accentColor ?? ACCENT_CYCLE[state.members.length % ACCENT_CYCLE.length]!;
+        const member = freshMember(name, color);
+        set({ members: [...state.members, member] });
         get().logActivity({
           type: "member_joined",
-          memberId: id,
+          memberId: member.id,
           message: `${name} присоединил(ась) к семье`,
         });
         playSound("created", get().soundEnabled);
-        return id;
+        return member.id;
       },
 
       removeMember: (id) => {
-        set((state) => ({ members: state.members.filter((m) => m.id !== id) }));
+        set((state) => ({
+          members: state.members.filter((m) => m.id !== id),
+          whoAmI: state.whoAmI === id ? null : state.whoAmI,
+        }));
       },
 
       updateMemberPhoto: (id, photoUrl) => {
@@ -367,38 +394,10 @@ export const useFamilyStore = create<FamilyHubState>()(
         }));
       },
 
-      redeemReward: (id) => {
-        const state = get();
-        const reward = state.rewards.find((r) => r.id === id);
-        if (!reward) return;
-        set({
-          rewards: state.rewards.map((r) =>
-            r.id === id ? { ...r, redeemed: true, redeemedAt: new Date().toISOString() } : r,
-          ),
-          lastCelebration: {
-            key: newId("cel"),
-            emoji: "🏆",
-            title: `Награда «${reward.name}» получена!`,
-            subtitle: "Не забудьте порадовать друг друга",
-            kind: "reward",
-          },
-        });
-        get().logActivity({
-          type: "reward_unlocked",
-          memberId: reward.memberId ?? state.members[0]?.id ?? "",
-          message: `Семья получила награду «${reward.name}»`,
-        });
-        playSound("reward", get().soundEnabled);
-      },
+      setWhoAmI: (id) => set({ whoAmI: id }),
+      finishOnboarding: () => set({ onboardingComplete: true }),
 
-      addReward: (input) => {
-        set((state) => ({
-          rewards: [
-            ...state.rewards,
-            { ...input, id: newId("reward"), familyId: demoFamily.id, redeemed: false },
-          ],
-        }));
-      },
+      resetAll: () => set({ ...EMPTY_STATE }),
 
       toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
       dismissCelebration: () => set({ lastCelebration: null }),
@@ -406,12 +405,13 @@ export const useFamilyStore = create<FamilyHubState>()(
     {
       name: "family-hub-storage",
       storage: createJSONStorage(() => localStorage),
-      version: 1,
+      version: 2,
       // Server-rendered HTML can't see localStorage, so the first paint
-      // must use the same in-memory demo state on both server and
-      // client — see components/StoreHydrator.tsx, which triggers the
-      // real rehydration right after mount to avoid a hydration mismatch.
+      // must use the same in-memory empty state on both server and
+      // client — see components/OnboardingGate.tsx, which waits for
+      // `hasHydrated` before deciding what to show.
       skipHydration: true,
+      migrate: () => ({ ...EMPTY_STATE }),
     },
   ),
 );

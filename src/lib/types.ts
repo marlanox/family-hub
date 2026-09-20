@@ -68,7 +68,6 @@ export interface FamilyMember {
   photoUrl: string | null;
   accentColor: "pink" | "lilac" | "sky" | "mint" | "yellow" | "coral";
   points: number;
-  lifetimePoints: number;
   currentStreak: number;
   longestStreak: number;
   completedTaskCount: number;

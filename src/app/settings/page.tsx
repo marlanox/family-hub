@@ -16,6 +16,10 @@ export default function SettingsPage() {
   const removeMember = useFamilyStore((s) => s.removeMember);
   const soundEnabled = useFamilyStore((s) => s.soundEnabled);
   const toggleSound = useFamilyStore((s) => s.toggleSound);
+  const whoAmI = useFamilyStore((s) => s.whoAmI);
+  const setWhoAmI = useFamilyStore((s) => s.setWhoAmI);
+  const resetAll = useFamilyStore((s) => s.resetAll);
+  const me = members.find((m) => m.id === whoAmI);
 
   const [name, setName] = useState("");
   const [color, setColor] = useState<FamilyMember["accentColor"]>("mint");
@@ -23,13 +27,25 @@ export default function SettingsPage() {
   return (
     <>
       <header className="flex items-center gap-3 px-4 pt-6">
-        <button onClick={() => router.push("/")} aria-label="Назад" className="rounded-full border-3 border-ink bg-white p-2 shadow-pop-sm">
+        <button onClick={() => router.back()} aria-label="Назад" className="rounded-full border-3 border-ink bg-white p-2 shadow-pop-sm">
           <Icon name="back" className="h-5 w-5" />
         </button>
         <h1 className="font-display text-xl uppercase">Настройки семьи</h1>
       </header>
 
       <main className="flex-1 space-y-6 px-4 pb-8 pt-4">
+        <section>
+          <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Это устройство</h2>
+          <div className="flex items-center justify-between rounded-2xl border-3 border-ink bg-white p-3 shadow-pop-sm">
+            <span className="font-semibold">
+              Ты сейчас: <span className="font-display">{me?.displayName ?? "не выбрано"}</span>
+            </span>
+            <ComicButton variant="outline" className="!px-3 !py-1.5 !text-[11px]" onClick={() => setWhoAmI(null)}>
+              Сменить
+            </ComicButton>
+          </div>
+        </section>
+
         <section>
           <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Члены семьи</h2>
           <p className="mb-3 px-1 text-xs font-semibold text-ink/50">
@@ -42,7 +58,14 @@ export default function SettingsPage() {
                 <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink bg-paper font-display text-sm">
                   {m.displayName.charAt(0)}
                 </span>
-                <p className="flex-1 font-semibold">{m.displayName}</p>
+                <p className="flex-1 font-semibold">
+                  {m.displayName}
+                  {m.id === whoAmI && (
+                    <span className="ml-2 rounded-full border-2 border-ink bg-mint px-2 py-0.5 text-[10px] font-bold uppercase">
+                      это ты
+                    </span>
+                  )}
+                </p>
                 <button
                   onClick={() => confirm(`Убрать ${m.displayName} из семьи?`) && removeMember(m.id)}
                   className="rounded-full border-2 border-ink px-2 py-1 text-[11px] font-bold uppercase text-pink-deep"
@@ -99,6 +122,21 @@ export default function SettingsPage() {
               <code className="rounded bg-paper px-1">README.md</code> репозитория.
             </p>
           </div>
+        </section>
+
+        <section>
+          <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Опасная зона</h2>
+          <ComicButton
+            variant="pink"
+            className="w-full"
+            onClick={() => {
+              if (confirm("Стереть всех членов семьи, все задачи, баллы и историю на этом устройстве? Это нельзя отменить.")) {
+                resetAll();
+              }
+            }}
+          >
+            Сбросить все данные
+          </ComicButton>
         </section>
       </main>
     </>

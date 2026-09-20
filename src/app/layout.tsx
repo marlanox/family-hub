@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Unbounded, Inter } from "next/font/google";
 import { CelebrationToast } from "@/components/CelebrationToast";
+import { OnboardingGate } from "@/components/OnboardingGate";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { StoreHydrator } from "@/components/StoreHydrator";
 import "./globals.css";
@@ -59,8 +60,8 @@ export default function RootLayout({
   return (
     <html lang="ru" className={`${display.variable} ${body.variable}`}>
       <body className="paper-texture min-h-dvh bg-paper font-body text-ink">
-        <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-paper">
-          {children}
+        <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-paper pt-[env(safe-area-inset-top)]">
+          <OnboardingGate>{children}</OnboardingGate>
         </div>
         <CelebrationToast />
         <ServiceWorkerRegister />

@@ -25,6 +25,7 @@ export default function HomePage() {
   const occurrences = useFamilyStore((s) => s.occurrences);
   const completeTask = useFamilyStore((s) => s.completeTask);
   const familyPoints = useFamilyStore((s) => s.familyPoints);
+  const rewardName = useFamilyStore((s) => s.currentFamilyRewardName());
 
   const topMember = useMemo(
     () => [...members].sort((a, b) => b.points - a.points)[0]?.id,
@@ -64,15 +65,17 @@ export default function HomePage() {
       <main className="flex-1 space-y-5 px-4 pb-6 pt-6">
         <div className="flex justify-around">
           {members.map((member) => (
-            <FamilyMemberSticker key={member.id} member={member} crown={member.id === topMember} />
+            <Link key={member.id} href={`/profile?member=${member.id}`}>
+              <FamilyMemberSticker member={member} crown={member.id === topMember} />
+            </Link>
           ))}
         </div>
 
         <GoalProgress
           title="Семейная цель"
-          subtitle="1000 баллов = мини-подарок"
+          subtitle={`5000 баллов = ${rewardName}`}
           current={familyPoints}
-          target={1000}
+          target={5000}
         />
 
         <SectionTitle

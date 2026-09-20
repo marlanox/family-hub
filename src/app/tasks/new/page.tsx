@@ -114,7 +114,7 @@ export default function NewTaskPage() {
       <>
         <header className="flex flex-col items-center gap-3 px-4 pt-6">
           <div className="flex w-full items-center justify-between">
-            <button onClick={() => router.push("/")} aria-label="Закрыть" className="rounded-full border-3 border-ink bg-white p-2 shadow-pop-sm">
+            <button onClick={() => router.back()} aria-label="Закрыть" className="rounded-full border-3 border-ink bg-white p-2 shadow-pop-sm">
               <Icon name="close" className="h-5 w-5" />
             </button>
             <span className="w-9" />

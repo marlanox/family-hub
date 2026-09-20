@@ -49,9 +49,13 @@ export default function PlanPage() {
               {WEEKDAY[now.getDay()]}, {now.getDate()} {MONTH[now.getMonth()]}
             </p>
           </div>
-          <span className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-yellow shadow-pop-sm">
+          <Link
+            href="/calendar"
+            aria-label="Открыть календарь"
+            className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-yellow shadow-pop-sm"
+          >
             <Icon name="calendar" className="h-5 w-5" />
-          </span>
+          </Link>
         </div>
 
         <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
