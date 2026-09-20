@@ -22,7 +22,7 @@ drop table if exists family_activity cascade;
 drop table if exists family_reward_history cascade;
 drop table if exists user_badges cascade;
 drop table if exists task_occurrences cascade;
-drop table if exists task_assignments cascade;
+drop table if exists task_assignments cascade; -- retired column-less table from an earlier version
 drop table if exists tasks cascade;
 drop table if exists family_members cascade;
 drop table if exists families cascade;
@@ -69,7 +69,10 @@ create table tasks (
   color text not null default 'pink',
   points integer not null default 20,
   difficulty text not null default 'easy' check (difficulty in ('easy', 'normal', 'hard', 'epic')),
-  is_family_wide boolean not null default false,
+  -- {"kind":"family"} or {"kind":"member","memberIds":[...]} — stored as
+  -- one JSON blob (matching the client's TaskAssignee type) rather than
+  -- a join table, so a task's assignees round-trip in a single upsert.
+  assignee jsonb not null default '{"kind":"family"}',
   creator_id uuid references family_members(id) on delete set null,
   recurrence jsonb not null default '{"type":"once"}',
   start_time time,
@@ -79,12 +82,6 @@ create table tasks (
   reminder_enabled boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
-);
-
-create table task_assignments (
-  task_id uuid not null references tasks(id) on delete cascade,
-  member_id uuid not null references family_members(id) on delete cascade,
-  primary key (task_id, member_id)
 );
 
 create table task_occurrences (
@@ -270,7 +267,6 @@ $$ language plpgsql security definer;
 alter table families enable row level security;
 alter table family_members enable row level security;
 alter table tasks enable row level security;
-alter table task_assignments enable row level security;
 alter table task_occurrences enable row level security;
 alter table user_badges enable row level security;
 alter table family_reward_history enable row level security;
@@ -282,8 +278,6 @@ create policy "anyone with the anon key can read/write family_members"
   on family_members for all using (true) with check (true);
 create policy "anyone with the anon key can read/write tasks"
   on tasks for all using (true) with check (true);
-create policy "anyone with the anon key can read/write task_assignments"
-  on task_assignments for all using (true) with check (true);
 create policy "anyone with the anon key can read/write task_occurrences"
   on task_occurrences for all using (true) with check (true);
 create policy "anyone with the anon key can read/write user_badges"
