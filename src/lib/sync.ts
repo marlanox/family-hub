@@ -38,6 +38,7 @@ function memberToRow(m: FamilyMember, familyId: string) {
     completed_task_count: m.completedTaskCount,
     last_completion_date: m.lastCompletionDate,
     active: m.active,
+    updated_at: m.updatedAt,
   };
 }
 
@@ -56,6 +57,7 @@ function rowToMember(row: Record<string, unknown>): FamilyMember {
     timezone: typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC",
     active: row.active as boolean,
     createdAt: row.created_at as string,
+    updatedAt: (row.updated_at as string | null) ?? (row.created_at as string),
   };
 }
 

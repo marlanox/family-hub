@@ -164,6 +164,7 @@ function freshMember(name: string, accentColor: FamilyMember["accentColor"]): Fa
     timezone: typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC",
     active: true,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -201,9 +202,13 @@ function mergeMembers(local: FamilyMember[], remote: FamilyMember[]): FamilyMemb
       byId.set(r.id, r);
       continue;
     }
+    // Display fields (name/photo/color/active) come from whichever side
+    // edited them most recently — "local always wins" would mean a photo
+    // set on one phone never reaches another phone that already cached
+    // any older photo for that person.
+    const fresh = (r.updatedAt || "") > (l.updatedAt || "") ? r : l;
     byId.set(r.id, {
-      ...l,
-      photoUrl: l.photoUrl ?? r.photoUrl,
+      ...fresh,
       points: Math.max(l.points, r.points),
       longestStreak: Math.max(l.longestStreak, r.longestStreak),
       completedTaskCount: Math.max(l.completedTaskCount, r.completedTaskCount),
@@ -653,7 +658,9 @@ export const useFamilyStore = create<FamilyHubState>()(
 
       updateMemberPhoto: (id, photoUrl) => {
         set((state) => ({
-          members: state.members.map((m) => (m.id === id ? { ...m, photoUrl } : m)),
+          members: state.members.map((m) =>
+            m.id === id ? { ...m, photoUrl, updatedAt: new Date().toISOString() } : m,
+          ),
         }));
         const code = get().familyCode;
         const updated = get().members.find((m) => m.id === id);

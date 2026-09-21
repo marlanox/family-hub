@@ -58,7 +58,8 @@ create table family_members (
   completed_task_count integer not null default 0,
   last_completion_date date,
   active boolean not null default true,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table tasks (

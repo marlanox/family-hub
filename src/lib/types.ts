@@ -77,6 +77,8 @@ export interface FamilyMember {
   timezone: string;
   active: boolean;
   createdAt: string;
+  /** Bumped on any edit to the fields above (name/photo/color/active) — lets sync tell which device's edit is newest. */
+  updatedAt: string;
 }
 
 export interface Family {
