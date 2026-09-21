@@ -32,9 +32,7 @@ export default function RewardsPage() {
 
       <main className="flex-1 space-y-5 px-4 pb-6 pt-4">
         <div className="flex items-center justify-center gap-3">
-          <span className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full border-3 border-ink bg-coral-soft shadow-pop">
-            <DogArt className="h-24 w-24" />
-          </span>
+          <DogArt className="h-32 w-32 shrink-0 -rotate-2" />
           <span className="rounded-2xl border-3 border-ink bg-white px-3 py-1.5 font-display text-xs shadow-pop-sm -rotate-2">
             Даже мы болеем за вас!
           </span>
