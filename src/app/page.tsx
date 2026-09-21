@@ -66,10 +66,13 @@ export default function HomePage() {
         <div className="flex justify-around">
           {members.map((member) => (
             <Link key={member.id} href={`/profile?member=${member.id}`}>
-              <FamilyMemberSticker member={member} crown={member.id === topMember} />
+              <FamilyMemberSticker member={member} crown={member.id === topMember} editHint />
             </Link>
           ))}
         </div>
+        <p className="-mt-3 text-center text-[11px] font-bold text-ink/40">
+          Нажмите на себя, чтобы добавить фото ✏️
+        </p>
 
         <GoalProgress
           title="Семейная цель"

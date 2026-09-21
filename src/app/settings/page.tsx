@@ -187,6 +187,14 @@ export default function SettingsPage() {
               <p className="px-1 text-xs font-semibold text-ink/50">
                 Один человек создаёт код, остальные вводят его на своих телефонах — дальше баллы и задачи общие.
               </p>
+              {!usingCustomSupabase() && (
+                <p className="rounded-2xl border-3 border-ink bg-yellow-soft p-3 text-xs font-bold">
+                  ⚠️ Сейчас это общий облачный проект этой копии приложения. Если делитесь этой ссылкой с друзьями —
+                  прежде чем нажимать «Создать код», попросите их сначала зайти ниже в «Своё облако» и вписать
+                  туда свой собственный бесплатный Supabase-проект. Иначе их семья попадёт в то же облако, что и
+                  ваша.
+                </p>
+              )}
               <ComicButton
                 variant="mint"
                 className="w-full"

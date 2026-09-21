@@ -6,13 +6,15 @@ interface FamilyMemberStickerProps {
   member: FamilyMember;
   crown?: boolean;
   size?: "md" | "lg";
+  /** Small pencil badge hinting "tap to open profile / change photo" — used on Home. */
+  editHint?: boolean;
 }
 
 // Portrait cutout sitting inside an irregular sticker blob, with a colored
 // ring per person and a name/points plaque underneath — see
 // docs/ARCHITECTURE.md "Avatars & portraits" for why this replaces plain
 // circular avatars everywhere.
-export function FamilyMemberSticker({ member, crown, size = "md" }: FamilyMemberStickerProps) {
+export function FamilyMemberSticker({ member, crown, size = "md", editHint }: FamilyMemberStickerProps) {
   const accent = accentMap[member.accentColor];
   const dimension = size === "lg" ? "h-28 w-28" : "h-20 w-20";
 
@@ -44,6 +46,14 @@ export function FamilyMemberSticker({ member, crown, size = "md" }: FamilyMember
             </span>
           )}
         </div>
+        {editHint && (
+          <span
+            className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink bg-white text-xs shadow-pop-sm"
+            aria-hidden
+          >
+            ✏️
+          </span>
+        )}
       </div>
       <div className="rounded-2xl border-3 border-ink bg-white px-3 py-1.5 text-center shadow-pop-sm">
         <p className="font-display text-xs uppercase leading-none">{member.displayName}</p>
