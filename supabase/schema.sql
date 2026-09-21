@@ -1,3 +1,15 @@
+-- ⚠️⚠️⚠️ WARNING — READ BEFORE RUNNING ⚠️⚠️⚠️
+-- This file DROPS every table (families, family_members, tasks, …) before
+-- recreating them. Run it ONLY for a brand-new, empty Supabase project.
+--
+-- If your family already has data in this project (points, tasks,
+-- history) — DO NOT run this file. Supabase's SQL Editor will warn you
+-- "This query includes destructive operations" for exactly this reason;
+-- that warning is correct, cancel it. Ask for (or re-request from) a
+-- small additive migration snippet instead — one that only adds new
+-- columns/functions with `alter table ... add column if not exists` and
+-- `create or replace function`, which never deletes existing rows.
+--
 -- Family Hub — Supabase sync layer (no accounts, no login).
 --
 -- Nobody signs in. Every device holds the same "family code" (just the
