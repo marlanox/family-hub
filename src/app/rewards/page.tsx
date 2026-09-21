@@ -5,6 +5,7 @@ import { BurstTitle } from "@/components/BurstTitle";
 import { GoalProgress } from "@/components/GoalProgress";
 import { Icon } from "@/components/Icon";
 import { LeaderboardRow } from "@/components/LeaderboardRow";
+import { CatArt, DogArt } from "@/components/PetArt";
 import { useFamilyStore } from "@/lib/store";
 import { relativeTime } from "@/lib/time";
 import Link from "next/link";
@@ -31,14 +32,14 @@ export default function RewardsPage() {
 
       <main className="flex-1 space-y-5 px-4 pb-6 pt-4">
         <div className="flex items-center justify-center gap-3">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full border-3 border-ink bg-sky-soft text-3xl shadow-pop-sm">
-            🐶
+          <span className="flex h-14 w-14 items-center justify-center rounded-full border-3 border-ink bg-coral-soft shadow-pop-sm">
+            <DogArt className="h-11 w-11" />
           </span>
           <span className="rounded-2xl border-3 border-ink bg-white px-3 py-1.5 font-display text-xs shadow-pop-sm -rotate-2">
             Даже мы болеем за вас!
           </span>
-          <span className="flex h-14 w-14 items-center justify-center rounded-full border-3 border-ink bg-yellow-soft text-3xl shadow-pop-sm">
-            👶
+          <span className="flex h-14 w-14 items-center justify-center rounded-full border-3 border-ink bg-lilac-soft shadow-pop-sm">
+            <CatArt className="h-11 w-11" />
           </span>
         </div>
 
