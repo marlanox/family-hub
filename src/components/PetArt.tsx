@@ -3,9 +3,10 @@ interface PetArtProps {
 }
 
 // Original mascot art for the family (not any copyrighted character) —
-// bold ink outlines and flat fills to match the app's comic/scrapbook
-// look (see FamilyMemberSticker, BurstTitle). Used on the Rewards page
-// as "even the pets are cheering for you" decoration.
+// bold, uniform-weight ink outlines and a goofy prime-time-cartoon sense
+// of humor (big googly eyes, lolling tongue, smirk), but an original
+// silhouette, palette and pose throughout — see FamilyMemberSticker /
+// BurstTitle for the app's comic/scrapbook look this matches.
 
 export function DogArt({ className }: PetArtProps) {
   return (
@@ -28,18 +29,25 @@ export function DogArt({ className }: PetArtProps) {
       {/* head */}
       <circle cx="50" cy="46" r="26" fill="#FFCFC7" stroke="#151313" strokeWidth="3" />
       {/* eye patch */}
-      <path d="M30 34c6-6 16-6 20 2-8 4-16 4-20-2Z" fill="#FF6F5E" stroke="#151313" strokeWidth="2.5" strokeLinejoin="round" />
-      {/* eyes */}
-      <circle cx="40" cy="44" r="3.4" fill="#151313" />
-      <circle cx="61" cy="44" r="3.4" fill="#151313" />
+      <path d="M28 32c6-6 16-6 20 2-8 4-16 4-20-2Z" fill="#FF6F5E" stroke="#151313" strokeWidth="2.5" strokeLinejoin="round" />
+      {/* one eyebrow cocked up for a goofy look */}
+      <path d="M56 32c3-3 7-3 9-1" stroke="#151313" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      {/* big googly eyes, slightly mismatched size for a silly expression */}
+      <circle cx="39" cy="43" r="6" fill="#fff" stroke="#151313" strokeWidth="2.2" />
+      <circle cx="38" cy="44" r="3" fill="#151313" />
+      <circle cx="63" cy="42" r="7" fill="#fff" stroke="#151313" strokeWidth="2.2" />
+      <circle cx="65" cy="43" r="3.4" fill="#151313" />
       {/* snout */}
-      <ellipse cx="50" cy="58" rx="12" ry="9" fill="#FFF3E6" stroke="#151313" strokeWidth="3" />
-      <ellipse cx="50" cy="54" rx="4.2" ry="3.2" fill="#151313" />
-      {/* tongue */}
-      <path d="M46 63c1 6 7 6 8 0" fill="#FF3D94" stroke="#151313" strokeWidth="2.5" strokeLinecap="round" />
+      <ellipse cx="50" cy="59" rx="13" ry="9" fill="#FFF3E6" stroke="#151313" strokeWidth="3" />
+      <ellipse cx="50" cy="55" rx="4.4" ry="3.4" fill="#151313" />
+      {/* big open grin with tongue lolling out */}
+      <path d="M40 63c4 5 16 5 20 0" stroke="#151313" strokeWidth="2.8" fill="#fff" strokeLinecap="round" />
+      <path d="M48 64c1 9 9 10 10 2" fill="#FF3D94" stroke="#151313" strokeWidth="2.5" strokeLinejoin="round" />
       {/* body + paws */}
-      <path d="M26 78c0-12 10-16 24-16s24 4 24 16v6H26Z" fill="#FF6F5E" stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
-      <path d="M33 84v-8M67 84v-8" stroke="#151313" strokeWidth="3" strokeLinecap="round" />
+      <path d="M24 82c0-13 11-17 26-17s26 4 26 17v5H24Z" fill="#FF6F5E" stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
+      <path d="M32 87v-8M68 87v-8" stroke="#151313" strokeWidth="3" strokeLinecap="round" />
+      {/* wag lines */}
+      <path d="M84 70c4 1 6 4 5 8M87 76c4 0 6 3 6 6" stroke="#151313" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.5" />
     </svg>
   );
 }
@@ -47,25 +55,28 @@ export function DogArt({ className }: PetArtProps) {
 export function CatArt({ className }: PetArtProps) {
   return (
     <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
-      {/* tail */}
-      <path d="M76 80c14-2 18-18 8-26" fill="none" stroke="#151313" strokeWidth="8" strokeLinecap="round" />
-      <path d="M76 80c14-2 18-18 8-26" fill="none" stroke="#B79CFF" strokeWidth="5" strokeLinecap="round" />
-      {/* ears */}
+      {/* tail with a curl */}
+      <path d="M76 82c16-2 20-20 6-28-8-4-4 6 2 8" fill="none" stroke="#151313" strokeWidth="8" strokeLinecap="round" />
+      <path d="M76 82c16-2 20-20 6-28-8-4-4 6 2 8" fill="none" stroke="#B79CFF" strokeWidth="5" strokeLinecap="round" />
+      {/* ears — one bent for a scruffy, funny look */}
       <path d="M30 32 22 12l16 8Z" fill="#B79CFF" stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
-      <path d="M70 32l8-20-16 8Z" fill="#B79CFF" stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
+      <path d="M68 30c2-8 10-16 16-16-2 8-6 16-10 22Z" fill="#B79CFF" stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
       {/* head */}
       <circle cx="50" cy="46" r="24" fill="#DCCFFF" stroke="#151313" strokeWidth="3" />
-      {/* eyes (happy, closed) */}
-      <path d="M36 44c3-4 8-4 10 0" fill="none" stroke="#151313" strokeWidth="3" strokeLinecap="round" />
-      <path d="M54 44c3-4 8-4 10 0" fill="none" stroke="#151313" strokeWidth="3" strokeLinecap="round" />
-      {/* nose + mouth */}
+      {/* mischievous smirking eyes */}
+      <path d="M33 42c3-5 10-5 12-1-4 4-9 4-12 1Z" fill="#fff" stroke="#151313" strokeWidth="2.2" strokeLinejoin="round" />
+      <circle cx="41" cy="42" r="2.6" fill="#151313" />
+      <path d="M56 41c3-5 10-5 12-1-4 4-9 4-12 1Z" fill="#fff" stroke="#151313" strokeWidth="2.2" strokeLinejoin="round" />
+      <circle cx="64" cy="41" r="2.6" fill="#151313" />
+      {/* nose + smirking open mouth with a fang */}
       <path d="M50 52 47 56h6Z" fill="#FF3D94" stroke="#151313" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M50 56c-3 3-6 3-8 1M50 56c3 3 6 3 8 1" stroke="#151313" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M50 56c-3 3-7 4-9 2M50 56c4 4 9 3 10-1" stroke="#151313" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M58 59v4" stroke="#151313" strokeWidth="2" strokeLinecap="round" />
       {/* whiskers */}
-      <path d="M14 46h16M14 52h15M70 46h16M71 52h15" stroke="#151313" strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 44h17M13 51h16M71 43h17M72 50h16" stroke="#151313" strokeWidth="2" strokeLinecap="round" />
       {/* body + paws */}
-      <path d="M28 80c0-13 10-18 22-18s22 5 22 18v4H28Z" fill="#B79CFF" stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
-      <path d="M38 84v-6M62 84v-6" stroke="#151313" strokeWidth="3" strokeLinecap="round" />
+      <path d="M27 82c0-14 10-19 23-19s23 5 23 19v4H27Z" fill="#B79CFF" stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
+      <path d="M38 86v-6M62 86v-6" stroke="#151313" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }

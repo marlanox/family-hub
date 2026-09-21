@@ -5,6 +5,7 @@ import { ComicButton } from "@/components/ComicButton";
 import { DifficultySelector } from "@/components/DifficultySelector";
 import { Icon } from "@/components/Icon";
 import { IconPicker } from "@/components/IconPicker";
+import { CatArt } from "@/components/PetArt";
 import { useFamilyStore } from "@/lib/store";
 import { taskTemplates, type TaskTemplate } from "@/lib/taskTemplates";
 import { accentMap } from "@/lib/colors";
@@ -128,6 +129,15 @@ export default function NewTaskPage() {
         </header>
 
         <main className="flex-1 space-y-4 px-4 pb-8 pt-4">
+          <div className="flex items-center justify-center gap-3">
+            <span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-3 border-ink bg-lilac-soft shadow-pop">
+              <CatArt className="h-20 w-20" />
+            </span>
+            <span className="rounded-2xl border-3 border-ink bg-white px-3 py-1.5 font-display text-xs shadow-pop-sm rotate-2">
+              Давай, ещё одну задачку!
+            </span>
+          </div>
+
           <div className="flex rounded-full border-3 border-ink bg-white p-1 shadow-pop-sm">
             <span className="flex-1 rounded-full bg-pink py-2 text-center font-display text-xs uppercase text-white">
               Шаблоны
