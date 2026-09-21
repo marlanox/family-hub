@@ -1,24 +1,15 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Family Hub has no server of its own. Supabase's free tier is the shared
-// "cloud" that every family member's phone talks to over HTTPS — see
+// Family Hub has no server of its own. Sync is opt-in and requires each
+// household to bring their own free Supabase project, typed into Settings
+// and kept only in that browser's localStorage — see
 // docs/ARCHITECTURE.md ("Storage & sync strategy").
 //
-// Two ways this gets configured:
-//  1. Baked in at build time (NEXT_PUBLIC_SUPABASE_URL/ANON_KEY) — set by
-//     whoever deployed this copy of the app.
-//  2. Typed into Settings by the person using it, and kept only in their
-//     own browser's localStorage. This is what lets a friend visit the
-//     SAME deployed link, install the SAME app, and store their family's
-//     data in THEIR OWN free Supabase project instead of the deployer's —
-//     the app is shared, the cloud underneath it isn't.
-//
-// A custom config always wins over the baked-in default once set.
-
-const defaultUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const defaultKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-const defaultClient: SupabaseClient | null =
-  defaultUrl && defaultKey ? createClient(defaultUrl, defaultKey) : null;
+// There is deliberately no shared fallback project baked into the app for
+// everyone who opens the deployed link to write into: a project this app
+// was built with (NEXT_PUBLIC_SUPABASE_URL/ANON_KEY, if set at all) is
+// never used to talk to Supabase — it's ignored outright — so nobody can
+// end up syncing into a cloud they didn't knowingly set up themselves.
 
 let customClient: SupabaseClient | null = null;
 let customUrl: string | null = null;
@@ -35,11 +26,11 @@ export function setCustomSupabase(url: string | null, key: string | null) {
 }
 
 export function getSupabase(): SupabaseClient | null {
-  return customClient ?? defaultClient;
+  return customClient;
 }
 
 export function isSyncAvailable(): boolean {
-  return Boolean(customClient ?? defaultClient);
+  return customClient !== null;
 }
 
 export function usingCustomSupabase(): boolean {
@@ -47,8 +38,5 @@ export function usingCustomSupabase(): boolean {
 }
 
 export function activeSupabaseUrl(): string | null {
-  return customUrl ?? (defaultUrl || null);
+  return customUrl;
 }
-
-/** @deprecated kept only for the "is a default project baked in at all" check in Settings copy. */
-export const isSupabaseConfigured = Boolean(defaultUrl && defaultKey);

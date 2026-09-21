@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Unbounded, Inter } from "next/font/google";
 import { CelebrationToast } from "@/components/CelebrationToast";
+import { IOSActiveFix } from "@/components/IOSActiveFix";
 import { OnboardingGate } from "@/components/OnboardingGate";
 import { RemoteSync } from "@/components/RemoteSync";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
@@ -65,6 +66,7 @@ export default function RootLayout({
           <OnboardingGate>{children}</OnboardingGate>
         </div>
         <CelebrationToast />
+        <IOSActiveFix />
         <ServiceWorkerRegister />
         <StoreHydrator />
         <RemoteSync />

@@ -36,6 +36,7 @@ function memberToRow(m: FamilyMember, familyId: string) {
     current_streak: m.currentStreak,
     longest_streak: m.longestStreak,
     completed_task_count: m.completedTaskCount,
+    last_completion_date: m.lastCompletionDate,
     active: m.active,
   };
 }
@@ -51,6 +52,7 @@ function rowToMember(row: Record<string, unknown>): FamilyMember {
     currentStreak: row.current_streak as number,
     longestStreak: row.longest_streak as number,
     completedTaskCount: row.completed_task_count as number,
+    lastCompletionDate: (row.last_completion_date as string | null) ?? null,
     timezone: typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC",
     active: row.active as boolean,
     createdAt: row.created_at as string,
@@ -121,14 +123,17 @@ export async function uploadPhoto(file: File, memberId: string): Promise<string 
   }
 }
 
-export async function createRemoteFamily(id: string, name: string) {
+export type SyncResult = { ok: true } | { ok: false; error: string };
+
+export async function createRemoteFamily(id: string, name: string): Promise<SyncResult> {
   const supabase = getSupabase();
-  if (!supabase) return false;
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
     const { error } = await supabase.from("families").insert({ id, name });
-    return !error;
-  } catch {
-    return false;
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -147,6 +152,26 @@ export async function pushTask(task: Task, familyId: string) {
   if (!supabase) return;
   try {
     await supabase.from("tasks").upsert(taskToRow(task, familyId));
+  } catch {
+    // best-effort
+  }
+}
+
+export async function deleteRemoteTask(taskId: string) {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  try {
+    await supabase.from("tasks").delete().eq("id", taskId);
+  } catch {
+    // best-effort
+  }
+}
+
+export async function deleteRemoteMember(memberId: string) {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  try {
+    await supabase.from("family_members").delete().eq("id", memberId);
   } catch {
     // best-effort
   }
@@ -265,9 +290,11 @@ export async function pushActivity(event: ActivityEvent, familyId: string) {
   }
 }
 
-export async function fetchSnapshot(familyId: string): Promise<RemoteSnapshot | null> {
+export async function fetchSnapshot(
+  familyId: string,
+): Promise<{ ok: true; snapshot: RemoteSnapshot } | { ok: false; error: string }> {
   const supabase = getSupabase();
-  if (!supabase) return null;
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   let familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes;
   try {
     [familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes] = await Promise.all([
@@ -282,11 +309,12 @@ export async function fetchSnapshot(familyId: string): Promise<RemoteSnapshot | 
       supabase.from("user_badges").select("*, family_members!inner(family_id)").eq("family_members.family_id", familyId),
       supabase.from("family_reward_history").select("*").eq("family_id", familyId).order("tier", { ascending: false }),
     ]);
-  } catch {
-    return null;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 
-  if (!familyRes.data) return null;
+  if (familyRes.error) return { ok: false, error: familyRes.error.message };
+  if (!familyRes.data) return { ok: false, error: "Код не найден — проверьте, что скопировали его точно." };
 
   const occurrences: RemoteSnapshot["occurrences"] = {};
   for (const row of occRes.data ?? []) {
@@ -300,31 +328,34 @@ export async function fetchSnapshot(familyId: string): Promise<RemoteSnapshot | 
   }
 
   return {
-    familyName: familyRes.data.name,
-    familyPoints: familyRes.data.family_points_pool,
-    familyMilestonesUnlocked: familyRes.data.family_milestones_unlocked,
-    members: (membersRes.data ?? []).map(rowToMember),
-    tasks: (tasksRes.data ?? []).map(rowToTask),
-    occurrences,
-    activity: (activityRes.data ?? []).map((row) => ({
-      id: row.id,
-      familyId: row.family_id,
-      type: row.type,
-      memberId: row.member_id ?? "",
-      taskId: row.task_id ?? undefined,
-      points: row.points ?? undefined,
-      message: row.message,
-      createdAt: row.created_at,
-    })),
-    earnedBadges: (badgesRes.data ?? []).map((row) => ({
-      memberId: row.member_id,
-      badgeId: row.badge_id,
-      earnedAt: row.earned_at,
-    })),
-    familyRewardHistory: (historyRes.data ?? []).map((row) => ({
-      tier: row.tier,
-      name: row.name,
-      unlockedAt: row.unlocked_at,
-    })),
+    ok: true,
+    snapshot: {
+      familyName: familyRes.data.name,
+      familyPoints: familyRes.data.family_points_pool,
+      familyMilestonesUnlocked: familyRes.data.family_milestones_unlocked,
+      members: (membersRes.data ?? []).map(rowToMember),
+      tasks: (tasksRes.data ?? []).map(rowToTask),
+      occurrences,
+      activity: (activityRes.data ?? []).map((row) => ({
+        id: row.id,
+        familyId: row.family_id,
+        type: row.type,
+        memberId: row.member_id ?? "",
+        taskId: row.task_id ?? undefined,
+        points: row.points ?? undefined,
+        message: row.message,
+        createdAt: row.created_at,
+      })),
+      earnedBadges: (badgesRes.data ?? []).map((row) => ({
+        memberId: row.member_id,
+        badgeId: row.badge_id,
+        earnedAt: row.earned_at,
+      })),
+      familyRewardHistory: (historyRes.data ?? []).map((row) => ({
+        tier: row.tier,
+        name: row.name,
+        unlockedAt: row.unlocked_at,
+      })),
+    },
   };
 }

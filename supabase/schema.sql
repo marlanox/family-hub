@@ -56,6 +56,7 @@ create table family_members (
   current_streak integer not null default 0,
   longest_streak integer not null default 0,
   completed_task_count integer not null default 0,
+  last_completion_date date,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -184,7 +185,16 @@ begin
   foreach v_member in array (
     select m from family_members m where m.id = any(p_member_ids)
   ) loop
-    v_new_streak := v_member.current_streak + 1;
+    -- Streak counts consecutive CALENDAR DAYS with a completion, not
+    -- completions themselves: several tasks done on the same
+    -- p_scheduled_for must not each bump the streak.
+    if v_member.last_completion_date = p_scheduled_for then
+      v_new_streak := v_member.current_streak;
+    elsif v_member.last_completion_date = p_scheduled_for - 1 then
+      v_new_streak := v_member.current_streak + 1;
+    else
+      v_new_streak := 1;
+    end if;
     v_new_points := v_member.points + p_points;
     v_prev_tier := v_member.points / 1000;
     v_new_tier := v_new_points / 1000;
@@ -193,7 +203,8 @@ begin
       points = v_new_points,
       current_streak = v_new_streak,
       longest_streak = greatest(v_member.longest_streak, v_new_streak),
-      completed_task_count = v_member.completed_task_count + 1
+      completed_task_count = v_member.completed_task_count + 1,
+      last_completion_date = greatest(coalesce(v_member.last_completion_date, p_scheduled_for), p_scheduled_for)
     where id = v_member.id;
 
     for v_tier in (v_prev_tier + 1)..v_new_tier loop
@@ -205,7 +216,7 @@ begin
       v_badges := v_badges || jsonb_build_object('memberId', v_member.id, 'tier', v_tier, 'name', v_member.display_name);
     end loop;
 
-    if v_new_streak = 7 or v_new_streak = 30 then
+    if v_member.last_completion_date is distinct from p_scheduled_for and (v_new_streak = 7 or v_new_streak = 30) then
       insert into user_badges (member_id, badge_id) values (v_member.id, 'streak-' || v_new_streak)
         on conflict do nothing;
       insert into family_activity (family_id, type, member_id, message)

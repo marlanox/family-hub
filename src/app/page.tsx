@@ -8,6 +8,7 @@ import { HeaderBanner } from "@/components/HeaderBanner";
 import { Icon } from "@/components/Icon";
 import { SectionTitle } from "@/components/SectionTitle";
 import { TaskCard } from "@/components/TaskCard";
+import { occurrenceKey, todayISO } from "@/lib/schedule";
 import { useFamilyStore } from "@/lib/store";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
@@ -39,8 +40,9 @@ export default function HomePage() {
       .join(", ");
   };
 
+  const todayKey = todayISO();
   const pendingCount = todaysTasks.filter(
-    (t) => (occurrences[`${t.id}__${new Date().toISOString().slice(0, 10)}`]?.status ?? "pending") !== "completed",
+    (t) => (occurrences[occurrenceKey(t.id, todayKey)]?.status ?? "pending") !== "completed",
   ).length;
 
   return (
@@ -98,7 +100,7 @@ export default function HomePage() {
 
         <div className="space-y-2.5">
           {todaysTasks.map((task) => {
-            const key = `${task.id}__${new Date().toISOString().slice(0, 10)}`;
+            const key = occurrenceKey(task.id, todayKey);
             const status = occurrences[key]?.status ?? "pending";
             if (status === "refused") return null;
             return (

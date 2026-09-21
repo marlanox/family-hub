@@ -72,6 +72,8 @@ export interface FamilyMember {
   currentStreak: number;
   longestStreak: number;
   completedTaskCount: number;
+  /** Local calendar date (YYYY-MM-DD) of this member's last completed task — gates streak increments to once per day. */
+  lastCompletionDate: string | null;
   timezone: string;
   active: boolean;
   createdAt: string;

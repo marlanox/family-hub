@@ -3,9 +3,11 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { isScheduledOn, occurrenceKey, todayISO } from "./schedule";
-import { playSound } from "./sound";
+import { playSound, type SoundTheme } from "./sound";
 import {
   createRemoteFamily,
+  deleteRemoteMember,
+  deleteRemoteTask,
   fetchSnapshot,
   notifyFamily,
   pushActivity,
@@ -14,6 +16,7 @@ import {
   pushRefuse,
   pushSnooze,
   pushTask,
+  type RemoteSnapshot,
 } from "./sync";
 import { setCustomSupabase } from "./supabaseClient";
 import type {
@@ -102,6 +105,7 @@ interface FamilyHubState {
   familyMilestonesUnlocked: number;
   familyRewardHistory: FamilyRewardHistoryEntry[];
   soundEnabled: boolean;
+  soundTheme: SoundTheme;
   whoAmI: string | null;
   onboardingComplete: boolean;
   hasHydrated: boolean;
@@ -109,6 +113,7 @@ interface FamilyHubState {
   familyCode: string | null;
   lastSyncedAt: string | null;
   syncing: boolean;
+  lastSyncError: string | null;
   customSupabaseUrl: string | null;
   customSupabaseKey: string | null;
 
@@ -130,9 +135,11 @@ interface FamilyHubState {
   enableSync: () => Promise<string | null>;
   joinSync: (code: string) => Promise<boolean>;
   pullSync: () => Promise<void>;
+  clearSyncError: () => void;
   leaveSync: () => void;
   setCustomSupabaseConfig: (url: string | null, key: string | null) => void;
   toggleSound: () => void;
+  setSoundTheme: (theme: SoundTheme) => void;
   dismissCelebration: () => void;
   logActivity: (event: Omit<ActivityEvent, "id" | "familyId" | "createdAt">) => void;
 }
@@ -153,9 +160,161 @@ function freshMember(name: string, accentColor: FamilyMember["accentColor"]): Fa
     currentStreak: 0,
     longestStreak: 0,
     completedTaskCount: 0,
+    lastCompletionDate: null,
     timezone: typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC",
     active: true,
     createdAt: new Date().toISOString(),
+  };
+}
+
+// Merging remote snapshots into local state — never a blind overwrite.
+// Sync is polled every ~20s (see RemoteSync.tsx) and also runs right
+// after joining a code; a plain overwrite meant any gap between "local
+// mutation happened" and "it finished pushing" could get clobbered by a
+// still-stale remote snapshot, which is what caused real reported data
+// loss (points and whole tasks disappearing after a "sync").
+const STATUS_RANK: Record<string, number> = { pending: 0, snoozed: 1, refused: 2, completed: 3 };
+
+function mergeOccurrence(a: OccurrenceRecord | undefined, b: OccurrenceRecord | undefined): OccurrenceRecord {
+  if (!a) return b!;
+  if (!b) return a;
+  const winner = (STATUS_RANK[b.status] ?? 0) > (STATUS_RANK[a.status] ?? 0) ? b : a;
+  return { ...winner, remindersSent: Math.max(a.remindersSent ?? 0, b.remindersSent ?? 0) };
+}
+
+function mergeOccurrences(
+  local: Record<string, OccurrenceRecord>,
+  remote: Record<string, OccurrenceRecord>,
+): Record<string, OccurrenceRecord> {
+  const keys = new Set([...Object.keys(local), ...Object.keys(remote)]);
+  const merged: Record<string, OccurrenceRecord> = {};
+  for (const k of keys) merged[k] = mergeOccurrence(local[k], remote[k]);
+  return merged;
+}
+
+function mergeMembers(local: FamilyMember[], remote: FamilyMember[]): FamilyMember[] {
+  const byId = new Map<string, FamilyMember>();
+  for (const m of local) byId.set(m.id, m);
+  for (const r of remote) {
+    const l = byId.get(r.id);
+    if (!l) {
+      byId.set(r.id, r);
+      continue;
+    }
+    byId.set(r.id, {
+      ...l,
+      photoUrl: l.photoUrl ?? r.photoUrl,
+      points: Math.max(l.points, r.points),
+      longestStreak: Math.max(l.longestStreak, r.longestStreak),
+      completedTaskCount: Math.max(l.completedTaskCount, r.completedTaskCount),
+      // Whichever side completed something more recently owns the streak
+      // (it has the freshest lastCompletionDate); a stale side's number
+      // never gets to overwrite a fresher one.
+      ...((r.lastCompletionDate ?? "") > (l.lastCompletionDate ?? "")
+        ? { currentStreak: r.currentStreak, lastCompletionDate: r.lastCompletionDate }
+        : { currentStreak: l.currentStreak, lastCompletionDate: l.lastCompletionDate }),
+    });
+  }
+  return Array.from(byId.values());
+}
+
+function mergeTasks(local: Task[], remote: Task[]): Task[] {
+  const byId = new Map<string, Task>();
+  for (const t of local) byId.set(t.id, t);
+  for (const r of remote) {
+    const l = byId.get(r.id);
+    if (!l) {
+      byId.set(r.id, r);
+      continue;
+    }
+    const lTime = new Date(l.updatedAt || l.createdAt || 0).getTime();
+    const rTime = new Date(r.updatedAt || r.createdAt || 0).getTime();
+    byId.set(r.id, rTime > lTime ? r : l);
+  }
+  return Array.from(byId.values());
+}
+
+function activityDedupeKey(e: ActivityEvent) {
+  return `${e.type}|${e.memberId}|${e.taskId ?? ""}|${e.message}`;
+}
+
+function mergeActivity(local: ActivityEvent[], remote: ActivityEvent[]): ActivityEvent[] {
+  const seen = new Map<string, ActivityEvent>();
+  for (const e of [...local, ...remote]) {
+    const k = activityDedupeKey(e);
+    const existing = seen.get(k);
+    if (!existing || new Date(e.createdAt).getTime() < new Date(existing.createdAt).getTime()) {
+      seen.set(k, existing ? { ...e, id: existing.id } : e);
+    }
+  }
+  return Array.from(seen.values())
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 200);
+}
+
+function mergeBadges(local: EarnedBadge[], remote: EarnedBadge[]): EarnedBadge[] {
+  const byKey = new Map<string, EarnedBadge>();
+  for (const b of [...local, ...remote]) {
+    const k = `${b.memberId}__${b.badgeId}`;
+    const existing = byKey.get(k);
+    if (!existing || new Date(b.earnedAt).getTime() < new Date(existing.earnedAt).getTime()) {
+      byKey.set(k, b);
+    }
+  }
+  return Array.from(byKey.values());
+}
+
+function mergeRewardHistory(
+  local: FamilyRewardHistoryEntry[],
+  remote: FamilyRewardHistoryEntry[],
+): FamilyRewardHistoryEntry[] {
+  const byTier = new Map<number, FamilyRewardHistoryEntry>();
+  for (const r of [...local, ...remote]) byTier.set(r.tier, r);
+  return Array.from(byTier.values()).sort((a, b) => b.tier - a.tier);
+}
+
+interface MergeResult {
+  members: FamilyMember[];
+  tasks: Task[];
+  occurrences: Record<string, OccurrenceRecord>;
+  activity: ActivityEvent[];
+  earnedBadges: EarnedBadge[];
+  familyPoints: number;
+  familyMilestonesUnlocked: number;
+  familyRewardHistory: FamilyRewardHistoryEntry[];
+}
+
+function mergeSnapshot(
+  local: {
+    members: FamilyMember[];
+    tasks: Task[];
+    occurrences: Record<string, OccurrenceRecord>;
+    activity: ActivityEvent[];
+    earnedBadges: EarnedBadge[];
+    familyPoints: number;
+    familyMilestonesUnlocked: number;
+    familyRewardHistory: FamilyRewardHistoryEntry[];
+  },
+  remote: RemoteSnapshot,
+): MergeResult {
+  const familyPool =
+    remote.familyMilestonesUnlocked > local.familyMilestonesUnlocked
+      ? { familyMilestonesUnlocked: remote.familyMilestonesUnlocked, familyPoints: remote.familyPoints }
+      : remote.familyMilestonesUnlocked < local.familyMilestonesUnlocked
+        ? { familyMilestonesUnlocked: local.familyMilestonesUnlocked, familyPoints: local.familyPoints }
+        : {
+            familyMilestonesUnlocked: local.familyMilestonesUnlocked,
+            familyPoints: Math.max(local.familyPoints, remote.familyPoints),
+          };
+
+  return {
+    members: mergeMembers(local.members, remote.members),
+    tasks: mergeTasks(local.tasks, remote.tasks),
+    occurrences: mergeOccurrences(local.occurrences, remote.occurrences as Record<string, OccurrenceRecord>),
+    activity: mergeActivity(local.activity, remote.activity),
+    earnedBadges: mergeBadges(local.earnedBadges, remote.earnedBadges),
+    familyRewardHistory: mergeRewardHistory(local.familyRewardHistory, remote.familyRewardHistory),
+    ...familyPool,
   };
 }
 
@@ -179,9 +338,11 @@ export const useFamilyStore = create<FamilyHubState>()(
     (set, get) => ({
       ...EMPTY_STATE,
       soundEnabled: true,
+      soundTheme: "xylophone",
       hasHydrated: false,
       lastCelebration: null,
       syncing: false,
+      lastSyncError: null,
       // Not part of EMPTY_STATE: which cloud project this *device* talks
       // to is a device setting, not family data — "Сбросить все данные"
       // shouldn't disconnect a friend's own Supabase project.
@@ -229,7 +390,16 @@ export const useFamilyStore = create<FamilyHubState>()(
 
         const updatedMembers = state.members.map((m) => {
           if (!members.some((am) => am.id === m.id)) return m;
-          const nextStreak = m.currentStreak + 1;
+          // Streak counts consecutive CALENDAR DAYS with at least one
+          // completion, not completions themselves — ten tasks done today
+          // must stay "1 day," not become "10 days in a row."
+          const yesterday = todayISO(new Date(new Date(dateISO).getTime() - 86400000));
+          const nextStreak =
+            m.lastCompletionDate === dateISO
+              ? m.currentStreak
+              : m.lastCompletionDate === yesterday
+                ? m.currentStreak + 1
+                : 1;
           const newPoints = m.points + task.points;
           const prevTier = Math.floor(m.points / 1000);
           const newTier = Math.floor(newPoints / 1000);
@@ -244,7 +414,8 @@ export const useFamilyStore = create<FamilyHubState>()(
               kind: "badge",
             });
           }
-          if (nextStreak === 7 || nextStreak === 30) {
+          const streakAdvancedToday = m.lastCompletionDate !== dateISO;
+          if (streakAdvancedToday && (nextStreak === 7 || nextStreak === 30)) {
             newlyEarned.push({ memberId: m.id, badgeId: `streak-${nextStreak}`, earnedAt: now });
             celebrations.push({
               key: newId("cel"),
@@ -276,6 +447,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             currentStreak: nextStreak,
             longestStreak: Math.max(m.longestStreak, nextStreak),
             completedTaskCount: m.completedTaskCount + 1,
+            lastCompletionDate: dateISO,
           };
         });
 
@@ -357,6 +529,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         playSound(
           celebrations.some((c) => c.kind === "reward") ? "reward" : celebrations.length ? "badge" : "complete",
           get().soundEnabled,
+          get().soundTheme,
         );
 
         if (state.familyCode) {
@@ -441,7 +614,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         const now = new Date().toISOString();
         const task: Task = { id, familyId: FAMILY_ID, createdAt: now, updatedAt: now, ...input };
         set((state) => ({ tasks: [task, ...state.tasks] }));
-        playSound("created", get().soundEnabled);
+        playSound("created", get().soundEnabled, get().soundTheme);
         const code = get().familyCode;
         if (code) void pushTask(task, code);
         return id;
@@ -449,6 +622,8 @@ export const useFamilyStore = create<FamilyHubState>()(
 
       removeTask: (taskId) => {
         set((state) => ({ tasks: state.tasks.filter((t) => t.id !== taskId) }));
+        const code = get().familyCode;
+        if (code) void deleteRemoteTask(taskId);
       },
 
       addMember: (name, accentColor) => {
@@ -461,7 +636,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           memberId: member.id,
           message: `${name} присоединил(ась) к семье`,
         });
-        playSound("created", get().soundEnabled);
+        playSound("created", get().soundEnabled, get().soundTheme);
         const code = get().familyCode;
         if (code) void pushMember(member, code);
         return member.id;
@@ -472,6 +647,8 @@ export const useFamilyStore = create<FamilyHubState>()(
           members: state.members.filter((m) => m.id !== id),
           whoAmI: state.whoAmI === id ? null : state.whoAmI,
         }));
+        const code = get().familyCode;
+        if (code) void deleteRemoteMember(id);
       },
 
       updateMemberPhoto: (id, photoUrl) => {
@@ -491,9 +668,12 @@ export const useFamilyStore = create<FamilyHubState>()(
       enableSync: async () => {
         const state = get();
         const code = newId("family");
-        const ok = await createRemoteFamily(code, "Наша семья");
-        if (!ok) return null;
-        set({ familyCode: code, lastSyncedAt: new Date().toISOString() });
+        const result = await createRemoteFamily(code, "Наша семья");
+        if (!result.ok) {
+          set({ lastSyncError: result.error });
+          return null;
+        }
+        set({ familyCode: code, lastSyncedAt: new Date().toISOString(), lastSyncError: null });
         await Promise.all(state.members.map((m) => pushMember(m, code)));
         await Promise.all(state.tasks.map((t) => pushTask(t, code)));
         return code;
@@ -501,25 +681,25 @@ export const useFamilyStore = create<FamilyHubState>()(
 
       joinSync: async (code) => {
         set({ syncing: true });
-        const snapshot = await fetchSnapshot(code.trim());
-        if (!snapshot) {
-          set({ syncing: false });
+        const trimmed = code.trim();
+        const result = await fetchSnapshot(trimmed);
+        if (!result.ok) {
+          set({ syncing: false, lastSyncError: result.error });
           return false;
         }
+        const state = get();
+        const merged = mergeSnapshot(state, result.snapshot);
         set({
-          familyCode: code.trim(),
-          members: snapshot.members,
-          tasks: snapshot.tasks,
-          occurrences: snapshot.occurrences as FamilyHubState["occurrences"],
-          activity: snapshot.activity,
-          earnedBadges: snapshot.earnedBadges,
-          familyPoints: snapshot.familyPoints,
-          familyMilestonesUnlocked: snapshot.familyMilestonesUnlocked,
-          familyRewardHistory: snapshot.familyRewardHistory,
-          whoAmI: null,
+          familyCode: trimmed,
+          ...merged,
           lastSyncedAt: new Date().toISOString(),
           syncing: false,
+          lastSyncError: null,
         });
+        // Any local-only data (created before this device joined) needs
+        // pushing up, or it only exists here and vanishes on next pull.
+        await Promise.all(merged.members.map((m) => pushMember(m, trimmed)));
+        await Promise.all(merged.tasks.map((t) => pushTask(t, trimmed)));
         return true;
       },
 
@@ -527,24 +707,22 @@ export const useFamilyStore = create<FamilyHubState>()(
         const code = get().familyCode;
         if (!code) return;
         set({ syncing: true });
-        const snapshot = await fetchSnapshot(code);
-        if (!snapshot) {
-          set({ syncing: false });
+        const result = await fetchSnapshot(code);
+        if (!result.ok) {
+          set({ syncing: false, lastSyncError: result.error });
           return;
         }
+        const state = get();
+        const merged = mergeSnapshot(state, result.snapshot);
         set({
-          members: snapshot.members,
-          tasks: snapshot.tasks,
-          occurrences: snapshot.occurrences as FamilyHubState["occurrences"],
-          activity: snapshot.activity,
-          earnedBadges: snapshot.earnedBadges,
-          familyPoints: snapshot.familyPoints,
-          familyMilestonesUnlocked: snapshot.familyMilestonesUnlocked,
-          familyRewardHistory: snapshot.familyRewardHistory,
+          ...merged,
           lastSyncedAt: new Date().toISOString(),
           syncing: false,
+          lastSyncError: null,
         });
       },
+
+      clearSyncError: () => set({ lastSyncError: null }),
 
       leaveSync: () => set({ familyCode: null, lastSyncedAt: null }),
 
@@ -554,6 +732,7 @@ export const useFamilyStore = create<FamilyHubState>()(
       },
 
       toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
+      setSoundTheme: (theme) => set({ soundTheme: theme }),
       dismissCelebration: () => set({ lastCelebration: null }),
     }),
     {

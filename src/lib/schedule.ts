@@ -1,7 +1,17 @@
 import type { Task } from "./types";
 
+// Local calendar date, NOT UTC — d.toISOString() shifts to UTC, which
+// disagrees with the local date for part of the day in any positive-UTC
+// timezone (e.g. Russia, UTC+3..+12): between local midnight and the
+// UTC offset's worth of hours after it, toISOString() still reports
+// "yesterday". That mismatch broke "is this task scheduled today" right
+// at the boundary, and it's also what <input type="date"> and every
+// occurrence key need to agree with.
 export function todayISO(d: Date = new Date()): string {
-  return d.toISOString().slice(0, 10);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /** Is this task scheduled to appear on the given date at all? */

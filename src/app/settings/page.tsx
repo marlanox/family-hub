@@ -3,7 +3,7 @@
 import { ComicButton } from "@/components/ComicButton";
 import { ColorPicker } from "@/components/ColorPicker";
 import { Icon } from "@/components/Icon";
-import { playSound } from "@/lib/sound";
+import { playSound, SOUND_THEMES } from "@/lib/sound";
 import { isSyncAvailable, usingCustomSupabase, activeSupabaseUrl } from "@/lib/supabaseClient";
 import { enablePushForMember, pushSupported } from "@/lib/push";
 import { useFamilyStore } from "@/lib/store";
@@ -18,6 +18,8 @@ export default function SettingsPage() {
   const removeMember = useFamilyStore((s) => s.removeMember);
   const soundEnabled = useFamilyStore((s) => s.soundEnabled);
   const toggleSound = useFamilyStore((s) => s.toggleSound);
+  const soundTheme = useFamilyStore((s) => s.soundTheme);
+  const setSoundTheme = useFamilyStore((s) => s.setSoundTheme);
   const whoAmI = useFamilyStore((s) => s.whoAmI);
   const setWhoAmI = useFamilyStore((s) => s.setWhoAmI);
   const resetAll = useFamilyStore((s) => s.resetAll);
@@ -28,6 +30,8 @@ export default function SettingsPage() {
   const leaveSync = useFamilyStore((s) => s.leaveSync);
   const pullSync = useFamilyStore((s) => s.pullSync);
   const lastSyncedAt = useFamilyStore((s) => s.lastSyncedAt);
+  const lastSyncError = useFamilyStore((s) => s.lastSyncError);
+  const clearSyncError = useFamilyStore((s) => s.clearSyncError);
   const setCustomSupabaseConfig = useFamilyStore((s) => s.setCustomSupabaseConfig);
   const me = members.find((m) => m.id === whoAmI);
 
@@ -160,10 +164,33 @@ export default function SettingsPage() {
             <span className="font-semibold">Весёлые звуки за успехи</span>
             <input type="checkbox" checked={soundEnabled} onChange={toggleSound} className="h-6 w-6 accent-pink" />
           </label>
+          <p className="mb-2 mt-3 px-1 text-xs font-semibold text-ink/50">
+            Выберите звук — он будет использоваться во всём приложении.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {SOUND_THEMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setSoundTheme(t.id);
+                  playSound("preview", true, t.id);
+                }}
+                className={`flex items-center justify-between rounded-2xl border-3 border-ink px-3 py-2.5 text-left font-semibold shadow-pop-sm transition ${
+                  soundTheme === t.id ? "bg-mint" : "bg-white"
+                }`}
+              >
+                <span>
+                  {t.emoji} {t.label}
+                </span>
+                {soundTheme === t.id && <span aria-hidden>✓</span>}
+              </button>
+            ))}
+          </div>
           <ComicButton
             variant="yellow"
             className="mt-2 w-full"
-            onClick={() => playSound("preview", true)}
+            onClick={() => playSound("preview", true, soundTheme)}
           >
             🔊 Проверить звук
           </ComicButton>
@@ -176,8 +203,9 @@ export default function SettingsPage() {
             <div className="space-y-2 rounded-2xl border-3 border-ink bg-white p-3 text-sm font-semibold shadow-pop-sm">
               <p>
                 Сейчас всё хранится только на этом устройстве (офлайн, бесплатно, без аккаунта). Чтобы баллы и
-                задачи синхронизировались между телефонами семьи, подключите бесплатный Supabase-проект — свой
-                собственный (ниже) или, если он есть, общий для этой копии приложения.
+                задачи синхронизировались между телефонами семьи, сначала подключите свой бесплатный
+                Supabase-проект в разделе «Своё облако» ниже — без этого шага у всех есть выбор не создавать
+                облако вообще, но нет выбора использовать чьё-то чужое: у каждой семьи оно только своё.
               </p>
             </div>
           )}
@@ -187,29 +215,27 @@ export default function SettingsPage() {
               <p className="px-1 text-xs font-semibold text-ink/50">
                 Один человек создаёт код, остальные вводят его на своих телефонах — дальше баллы и задачи общие.
               </p>
-              {!usingCustomSupabase() && (
-                <p className="rounded-2xl border-3 border-ink bg-yellow-soft p-3 text-xs font-bold">
-                  ⚠️ Сейчас это общий облачный проект этой копии приложения. Если делитесь этой ссылкой с друзьями —
-                  прежде чем нажимать «Создать код», попросите их сначала зайти ниже в «Своё облако» и вписать
-                  туда свой собственный бесплатный Supabase-проект. Иначе их семья попадёт в то же облако, что и
-                  ваша.
-                </p>
-              )}
               <ComicButton
                 variant="mint"
                 className="w-full"
                 disabled={creatingSync}
                 onClick={async () => {
                   setCreateError(null);
+                  clearSyncError();
                   setCreatingSync(true);
                   const code = await enableSync();
                   setCreatingSync(false);
-                  if (!code) setCreateError("Не получилось создать код — проверьте интернет и попробуйте ещё раз.");
+                  if (!code) setCreateError("Не получилось создать код.");
                 }}
               >
                 {creatingSync ? "Создаём…" : "Создать код синхронизации"}
               </ComicButton>
-              {createError && <p className="px-1 text-xs font-bold text-pink-deep">{createError}</p>}
+              {createError && (
+                <p className="px-1 text-xs font-bold text-pink-deep">
+                  {createError}
+                  {lastSyncError ? ` Причина: ${lastSyncError}` : " Проверьте интернет и попробуйте ещё раз."}
+                </p>
+              )}
               <div className="rounded-2xl border-3 border-dashed border-ink/30 p-3 space-y-2">
                 <input
                   value={joinCode}
@@ -223,13 +249,19 @@ export default function SettingsPage() {
                   disabled={syncing || !joinCode.trim()}
                   onClick={async () => {
                     setJoinError(null);
+                    clearSyncError();
                     const ok = await joinSync(joinCode.trim());
-                    if (!ok) setJoinError("Код не найден — проверьте, что скопировали точно.");
+                    if (!ok) setJoinError("Не получилось присоединиться.");
                   }}
                 >
                   {syncing ? "Подключаем…" : "Присоединиться по коду"}
                 </ComicButton>
-                {joinError && <p className="text-xs font-bold text-pink-deep">{joinError}</p>}
+                {joinError && (
+                  <p className="text-xs font-bold text-pink-deep">
+                    {joinError}
+                    {lastSyncError ? ` Причина: ${lastSyncError}` : " Проверьте код и интернет."}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -268,10 +300,12 @@ export default function SettingsPage() {
         </section>
 
         <section>
-          <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Своё облако (для друзей)</h2>
+          <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Своё облако</h2>
           <p className="mb-2 px-1 text-xs font-semibold text-ink/50">
-            Прислали кому-то ссылку на это же приложение? Пусть заведёт свой бесплатный Supabase-проект (2 минуты,
-            только email) и впишет его сюда — тогда его семья хранится в его собственном облаке, а не в вашем.
+            Синхронизация работает только через ваш собственный бесплатный Supabase-проект (2 минуты, только
+            email) — заведите его и впишите сюда. Прислали кому-то ссылку на это же приложение? Пусть заведёт свой
+            отдельный проект и впишет его на своём телефоне — тогда его семья хранится в его собственном облаке, а
+            не в вашем, и наоборот.
             {usingCustomSupabase() && activeSupabaseUrl() && (
               <>
                 {" "}
