@@ -79,6 +79,8 @@ export interface FamilyMember {
   createdAt: string;
   /** Bumped on any edit to the fields above (name/photo/color/active) — lets sync tell which device's edit is newest. */
   updatedAt: string;
+  /** Set (soft-delete) when removed while synced, so other devices' merge can actually drop it instead of it silently reappearing. Local-only removals just delete the array entry directly. */
+  deletedAt?: string | null;
 }
 
 export interface Family {
@@ -125,6 +127,8 @@ export interface Task {
   reminderEnabled: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Set (soft-delete) when removed while synced — see FamilyMember.deletedAt. */
+  deletedAt?: string | null;
 }
 
 export type OccurrenceStatus =

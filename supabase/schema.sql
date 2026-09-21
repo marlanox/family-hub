@@ -71,7 +71,13 @@ create table family_members (
   last_completion_date date,
   active boolean not null default true,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  -- Soft-delete tombstone: a hard `delete` would just vanish from a
+  -- fetch, which a device that already cached this row can't tell apart
+  -- from "not pushed yet" — so it would never remove it, and a deleted
+  -- member could silently reappear. Marking it instead lets every device
+  -- see the delete and drop it locally too.
+  deleted_at timestamptz
 );
 
 create table tasks (
@@ -96,7 +102,8 @@ create table tasks (
   has_deadline boolean not null default true,
   reminder_enabled boolean not null default true,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz -- soft-delete tombstone, see family_members.deleted_at
 );
 
 create table task_occurrences (

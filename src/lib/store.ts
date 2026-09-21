@@ -220,7 +220,10 @@ function mergeMembers(local: FamilyMember[], remote: FamilyMember[]): FamilyMemb
         : { currentStreak: l.currentStreak, lastCompletionDate: l.lastCompletionDate }),
     });
   }
-  return Array.from(byId.values());
+  // A tombstoned row (removed on some device while synced) drops out of
+  // every device's merged state instead of resurfacing — see
+  // deleteRemoteMember's comment for why a hard delete can't do this.
+  return Array.from(byId.values()).filter((m) => !m.deletedAt);
 }
 
 function mergeTasks(local: Task[], remote: Task[]): Task[] {
@@ -236,7 +239,7 @@ function mergeTasks(local: Task[], remote: Task[]): Task[] {
     const rTime = new Date(r.updatedAt || r.createdAt || 0).getTime();
     byId.set(r.id, rTime > lTime ? r : l);
   }
-  return Array.from(byId.values());
+  return Array.from(byId.values()).filter((t) => !t.deletedAt);
 }
 
 function activityDedupeKey(e: ActivityEvent) {

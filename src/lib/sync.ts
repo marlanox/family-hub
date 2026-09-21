@@ -58,6 +58,7 @@ function rowToMember(row: Record<string, unknown>): FamilyMember {
     active: row.active as boolean,
     createdAt: row.created_at as string,
     updatedAt: (row.updated_at as string | null) ?? (row.created_at as string),
+    deletedAt: (row.deleted_at as string | null) ?? null,
   };
 }
 
@@ -80,6 +81,8 @@ function taskToRow(t: Task, familyId: string) {
     once_date: t.onceDate ?? null,
     has_deadline: t.hasDeadline,
     reminder_enabled: t.reminderEnabled,
+    updated_at: t.updatedAt,
+    deleted_at: t.deletedAt ?? null,
   };
 }
 
@@ -104,6 +107,7 @@ function rowToTask(row: Record<string, unknown>): Task {
     reminderEnabled: row.reminder_enabled as boolean,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
+    deletedAt: (row.deleted_at as string | null) ?? null,
   };
 }
 
@@ -159,11 +163,17 @@ export async function pushTask(task: Task, familyId: string) {
   }
 }
 
+// Soft-delete (set deleted_at) rather than a hard `delete` — a hard
+// delete just vanishes from other devices' next fetch, which looks
+// identical to "not pushed there yet," so mergeSnapshot would never
+// know to remove its own cached copy and the item would silently
+// reappear. A tombstone lets every device see the delete and act on it.
 export async function deleteRemoteTask(taskId: string) {
   const supabase = getSupabase();
   if (!supabase) return;
+  const now = new Date().toISOString();
   try {
-    await supabase.from("tasks").delete().eq("id", taskId);
+    await supabase.from("tasks").update({ deleted_at: now, updated_at: now }).eq("id", taskId);
   } catch {
     // best-effort
   }
@@ -172,8 +182,9 @@ export async function deleteRemoteTask(taskId: string) {
 export async function deleteRemoteMember(memberId: string) {
   const supabase = getSupabase();
   if (!supabase) return;
+  const now = new Date().toISOString();
   try {
-    await supabase.from("family_members").delete().eq("id", memberId);
+    await supabase.from("family_members").update({ deleted_at: now, updated_at: now }).eq("id", memberId);
   } catch {
     // best-effort
   }
