@@ -2,6 +2,7 @@
 
 import { ComicButton } from "@/components/ComicButton";
 import { Icon } from "@/components/Icon";
+import { GrumpyDogArt } from "@/components/PetArt";
 import { useFamilyStore } from "@/lib/store";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -62,7 +63,13 @@ function TaskReminderContent() {
         <p className="text-center font-display text-xl uppercase leading-tight">
           Ты точно не будешь делать?
         </p>
-        <p className="mt-6 text-center text-sm font-semibold text-white/60">
+        <div className="mt-4 flex items-center justify-center gap-3">
+          <GrumpyDogArt className="h-24 w-24 shrink-0 -rotate-3" />
+          <span className="rounded-2xl border-3 border-white bg-white px-3 py-1.5 font-display text-xs text-ink shadow-pop-sm rotate-2">
+            Серьёзно?! Опять?!
+          </span>
+        </div>
+        <p className="mt-4 text-center text-sm font-semibold text-white/60">
           Можно указать причину (необязательно)
         </p>
 
@@ -117,13 +124,13 @@ function TaskReminderContent() {
       >
         <Icon name="back" className="h-5 w-5" />
       </button>
-      <div className="halftone-dots relative flex h-36 w-36 items-center justify-center rounded-full border-3 border-white/30 bg-lilac/30 text-white/20">
-        <span className="spike-burst absolute inset-2 bg-yellow/90" />
-        <Icon name={task.icon} className="relative z-10 h-16 w-16 text-ink" />
+      <div className="halftone-dots relative flex h-56 w-56 items-center justify-center rounded-full border-3 border-white/30 bg-lilac/40 text-white/20">
+        <span className="spike-burst absolute inset-0 -rotate-6 bg-yellow" />
+        <Icon name={task.icon} className="relative z-10 h-28 w-28 text-ink" />
       </div>
 
-      <p className="mt-8 text-sm font-bold uppercase tracking-widest text-white/50">Пора делать задачу!</p>
-      <h1 className="mt-2 font-display text-3xl uppercase">{task.title}</h1>
+      <p className="mt-6 text-sm font-bold uppercase tracking-widest text-white/50">Пора делать задачу!</p>
+      <h1 className="mt-2 font-display text-4xl uppercase leading-tight">{task.title}</h1>
       <p className="mt-2 font-semibold text-white/70">{names}, пора это сделать!</p>
       <span className="mt-4 rounded-full border-3 border-ink bg-mint px-4 py-1.5 font-display text-ink shadow-pop-sm">
         +{task.points} баллов

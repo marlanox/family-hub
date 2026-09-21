@@ -52,6 +52,45 @@ export function DogArt({ className }: PetArtProps) {
   );
 }
 
+/** Same dog, but unimpressed with you — used to guilt-trip a refused task. */
+export function GrumpyDogArt({ className }: PetArtProps) {
+  return (
+    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+      {/* ears pinned back, annoyed */}
+      <path
+        d="M32 34c-15 2-20 14-14 26 3 6 11 6 14-2 2-8 2-17 0-24Z"
+        fill="#FF6F5E"
+        stroke="#151313"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M68 34c15 2 20 14 14 26-3 6-11 6-14-2-2-8-2-17 0-24Z"
+        fill="#FF6F5E"
+        stroke="#151313"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+      {/* head */}
+      <circle cx="50" cy="46" r="26" fill="#FFCFC7" stroke="#151313" strokeWidth="3" />
+      {/* furrowed angry eyebrows */}
+      <path d="M32 36c5 3 9 3 13 6M68 36c-5 3-9 3-13 6" stroke="#151313" strokeWidth="3.2" fill="none" strokeLinecap="round" />
+      {/* narrowed eyes */}
+      <path d="M35 44c3-2 7-2 9 0" stroke="#151313" strokeWidth="3.4" fill="none" strokeLinecap="round" />
+      <path d="M56 44c3-2 7-2 9 0" stroke="#151313" strokeWidth="3.4" fill="none" strokeLinecap="round" />
+      {/* snout scrunched into a frown */}
+      <ellipse cx="50" cy="60" rx="13" ry="8" fill="#FFF3E6" stroke="#151313" strokeWidth="3" />
+      <ellipse cx="50" cy="56" rx="4.4" ry="3.4" fill="#151313" />
+      <path d="M40 65c4-3 16-3 20 0" stroke="#151313" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+      {/* body + crossed front paws */}
+      <path d="M24 84c0-13 11-17 26-17s26 4 26 17v3H24Z" fill="#FF6F5E" stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
+      <path d="M38 78c6 4 12 4 18-1" stroke="#151313" strokeWidth="3.2" fill="none" strokeLinecap="round" />
+      {/* annoyed motion lines above head */}
+      <path d="M22 20l4 5M50 14v6M78 20l-4 5" stroke="#151313" strokeWidth="2.4" strokeLinecap="round" opacity="0.6" />
+    </svg>
+  );
+}
+
 export function CatArt({ className }: PetArtProps) {
   return (
     <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
