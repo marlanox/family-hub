@@ -40,7 +40,12 @@ export default function NewTaskPage() {
   const [points, setPoints] = useState(20);
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
-  const [assignFamily, setAssignFamily] = useState(false);
+  // Defaults to the whole family so a first-time "Создать задачу" tap
+  // with no extra interaction actually creates the task — previously
+  // neither was picked, submit() silently refused with an inline error,
+  // and nothing else happened (no sound, no navigating back), which
+  // looked exactly like the button doing nothing.
+  const [assignFamily, setAssignFamily] = useState(true);
   const [recurrence, setRecurrence] = useState<RecurrenceType>("once");
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
   const [dueTime, setDueTime] = useState("12:00");
