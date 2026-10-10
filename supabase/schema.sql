@@ -55,7 +55,12 @@ create table families (
   family_points_pool integer not null default 0,
   family_goal integer not null default 5000,
   family_milestones_unlocked integer not null default 0,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- IANA zone (e.g. "Europe/Moscow") the send-reminders Edge Function
+  -- uses to decide what "today" and "due now" mean for this family — the
+  -- server itself runs in UTC, and a task's due_time is just a wall-clock
+  -- time with no zone of its own.
+  timezone text not null default 'Europe/Moscow'
 );
 
 create table family_members (

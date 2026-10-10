@@ -366,12 +366,13 @@ export async function notifyFamily(
   excludeMemberIds: string[],
   title: string,
   body: string,
+  url?: string,
 ): Promise<SyncResult> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
     const { error } = await supabase.functions.invoke("send-push", {
-      body: { familyId, excludeMemberIds, title, body },
+      body: { familyId, excludeMemberIds, title, body, url },
     });
     if (error) return { ok: false, error: error.message };
     return { ok: true };

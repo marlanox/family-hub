@@ -39,7 +39,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { familyId, excludeMemberIds = [], title, body } = await req.json();
+    const { familyId, excludeMemberIds = [], title, body, url } = await req.json();
     if (!familyId || !title || !body) {
       return new Response(JSON.stringify({ error: "missing fields" }), {
         status: 400,
@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify({ title, body }),
+          JSON.stringify({ title, body, data: url ? { url } : {} }),
         );
         sent++;
       } catch (err) {

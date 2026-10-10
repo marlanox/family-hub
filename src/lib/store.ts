@@ -580,6 +580,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             members.map((m) => m.id),
             "Задача выполнена ✅",
             completedMessage,
+            "/activity",
           ).then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
@@ -627,7 +628,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             },
             state.familyCode,
           );
-          void notifyFamily(state.familyCode, members.map((m) => m.id), "Задача не будет сделана", refusedMessage).then((r) => {
+          void notifyFamily(state.familyCode, members.map((m) => m.id), "Задача не будет сделана", refusedMessage, "/activity").then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
         }
@@ -635,6 +636,7 @@ export const useFamilyStore = create<FamilyHubState>()(
 
       snoozeTask: (taskId, hours, dateISO = todayISO()) => {
         const state = get();
+        const task = state.tasks.find((t) => t.id === taskId);
         const key = occurrenceKey(taskId, dateISO);
         const current = state.occurrences[key];
         const snoozedUntil = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
@@ -648,9 +650,42 @@ export const useFamilyStore = create<FamilyHubState>()(
             },
           },
         });
+        if (!task) return;
+
+        const members = assigneeMembers(task.assignee, state.members);
+        const names = members.map((m) => m.displayName).join(", ");
+        const until = hours < 1 ? `${Math.round(hours * 60)} мин` : hours === 1 ? "час" : `${hours} ч`;
+        const snoozedMessage = `${names} перенес(ла) «${task.title}» на ${until}`;
+        get().logActivity({
+          type: "task_postponed",
+          memberId: members[0]?.id ?? task.creatorId,
+          taskId: task.id,
+          message: snoozedMessage,
+        });
 
         if (state.familyCode) {
           void pushSnooze(taskId, dateISO, hours);
+          void pushActivity(
+            {
+              id: "",
+              familyId: state.familyCode,
+              type: "task_postponed",
+              memberId: members[0]?.id ?? task.creatorId,
+              taskId: task.id,
+              message: snoozedMessage,
+              createdAt: new Date().toISOString(),
+            },
+            state.familyCode,
+          );
+          void notifyFamily(
+            state.familyCode,
+            members.map((m) => m.id),
+            "Задача перенесена",
+            snoozedMessage,
+            "/activity",
+          ).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
         }
       },
 
@@ -682,7 +717,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             { id: "", familyId: code, type: "task_assigned", memberId: input.creatorId, taskId: task.id, message, createdAt: now },
             code,
           );
-          void notifyFamily(code, creator ? [creator.id] : [], "Новая задача", message).then((r) => {
+          void notifyFamily(code, creator ? [creator.id] : [], "Новая задача", message, `/tasks/remind?id=${task.id}`).then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
         }
