@@ -372,3 +372,17 @@ export async function fetchSnapshot(
     },
   };
 }
+
+/**
+ * Lightweight lookup before committing to a join — lets the UI show
+ * "you're about to join: Маша, Ваня, Наташа (3 people)" so joining the
+ * wrong code (a typo, or someone else's accidentally-created family)
+ * is obvious before it happens instead of after.
+ */
+export async function previewFamily(
+  familyId: string,
+): Promise<{ ok: true; memberNames: string[] } | { ok: false; error: string }> {
+  const result = await fetchSnapshot(familyId);
+  if (!result.ok) return result;
+  return { ok: true, memberNames: result.snapshot.members.map((m) => m.displayName) };
+}

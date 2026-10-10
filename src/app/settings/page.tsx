@@ -5,6 +5,7 @@ import { ColorPicker } from "@/components/ColorPicker";
 import { Icon } from "@/components/Icon";
 import { playSound, SOUND_THEMES } from "@/lib/sound";
 import { isSyncAvailable, usingCustomSupabase, activeSupabaseUrl } from "@/lib/supabaseClient";
+import { previewFamily } from "@/lib/sync";
 import { enablePushForMember, pushSupported } from "@/lib/push";
 import { useFamilyStore } from "@/lib/store";
 import type { FamilyMember } from "@/lib/types";
@@ -39,6 +40,7 @@ export default function SettingsPage() {
   const [color, setColor] = useState<FamilyMember["accentColor"]>("mint");
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [ownProjectOpen, setOwnProjectOpen] = useState(false);
   const [ownUrl, setOwnUrl] = useState("");
@@ -297,15 +299,28 @@ export default function SettingsPage() {
                 <ComicButton
                   variant="sky"
                   className="w-full"
-                  disabled={syncing || !joinCode.trim()}
+                  disabled={syncing || previewing || !joinCode.trim()}
                   onClick={async () => {
                     setJoinError(null);
                     clearSyncError();
+                    setPreviewing(true);
+                    const preview = await previewFamily(joinCode.trim());
+                    setPreviewing(false);
+                    if (!preview.ok) {
+                      setJoinError("Не получилось проверить код.");
+                      return;
+                    }
+                    const names = preview.memberNames;
+                    const summary =
+                      names.length === 0
+                        ? "В этой семье пока никого нет (пустой/новый код)."
+                        : `В этой семье: ${names.join(", ")} (${names.length} чел.).`;
+                    if (!confirm(`${summary}\n\nЭто точно ваша семья? Присоединиться?`)) return;
                     const ok = await joinSync(joinCode.trim());
                     if (!ok) setJoinError("Не получилось присоединиться.");
                   }}
                 >
-                  {syncing ? "Подключаем…" : "Присоединиться по коду"}
+                  {previewing ? "Проверяем код…" : syncing ? "Подключаем…" : "Присоединиться по коду"}
                 </ComicButton>
                 {joinError && (
                   <p className="text-xs font-bold text-pink-deep">
