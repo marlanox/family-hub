@@ -548,7 +548,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           void notifyFamily(
             state.familyCode,
             members.map((m) => m.id),
-            "Family Hub",
+            "Задача выполнена ✅",
             completedMessage,
           ).then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
@@ -597,7 +597,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             },
             state.familyCode,
           );
-          void notifyFamily(state.familyCode, members.map((m) => m.id), "Family Hub", refusedMessage).then((r) => {
+          void notifyFamily(state.familyCode, members.map((m) => m.id), "Задача не будет сделана", refusedMessage).then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
         }
@@ -652,7 +652,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             { id: "", familyId: code, type: "task_assigned", memberId: input.creatorId, taskId: task.id, message, createdAt: now },
             code,
           );
-          void notifyFamily(code, creator ? [creator.id] : [], "Family Hub", message).then((r) => {
+          void notifyFamily(code, creator ? [creator.id] : [], "Новая задача", message).then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
         }
