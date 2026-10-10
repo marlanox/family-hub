@@ -16,6 +16,7 @@ import {
   pushRefuse,
   pushSnooze,
   pushTask,
+  wipeAllCloudFamilies,
   type RemoteSnapshot,
 } from "./sync";
 import { setCustomSupabase } from "./supabaseClient";
@@ -137,6 +138,7 @@ interface FamilyHubState {
   pullSync: () => Promise<void>;
   clearSyncError: () => void;
   leaveSync: () => void;
+  wipeCloudFamily: () => Promise<boolean>;
   setCustomSupabaseConfig: (url: string | null, key: string | null) => void;
   toggleSound: () => void;
   setSoundTheme: (theme: SoundTheme) => void;
@@ -760,6 +762,17 @@ export const useFamilyStore = create<FamilyHubState>()(
       clearSyncError: () => set({ lastSyncError: null }),
 
       leaveSync: () => set({ familyCode: null, lastSyncedAt: null }),
+
+      wipeCloudFamily: async () => {
+        set({ syncing: true });
+        const result = await wipeAllCloudFamilies();
+        if (!result.ok) {
+          set({ syncing: false, lastSyncError: result.error });
+          return false;
+        }
+        set({ familyCode: null, lastSyncedAt: null, syncing: false, lastSyncError: null });
+        return true;
+      },
 
       setCustomSupabaseConfig: (url, key) => {
         setCustomSupabase(url, key);

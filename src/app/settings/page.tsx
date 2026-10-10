@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const enableSync = useFamilyStore((s) => s.enableSync);
   const joinSync = useFamilyStore((s) => s.joinSync);
   const leaveSync = useFamilyStore((s) => s.leaveSync);
+  const wipeCloudFamily = useFamilyStore((s) => s.wipeCloudFamily);
   const pullSync = useFamilyStore((s) => s.pullSync);
   const lastSyncedAt = useFamilyStore((s) => s.lastSyncedAt);
   const lastSyncError = useFamilyStore((s) => s.lastSyncError);
@@ -49,6 +50,9 @@ export default function SettingsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
+  const [wipeOpen, setWipeOpen] = useState(false);
+  const [wipeConfirmText, setWipeConfirmText] = useState("");
+  const [wiping, setWiping] = useState(false);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [pushBusy, setPushBusy] = useState(false);
 
@@ -440,6 +444,63 @@ export default function SettingsPage() {
                   Отмена
                 </ComicButton>
               </div>
+            </div>
+          )}
+
+          {isSyncAvailable() && (
+            <div className="mt-3">
+              {!wipeOpen ? (
+                <ComicButton variant="outline" className="w-full !border-pink-deep !text-pink-deep" onClick={() => setWipeOpen(true)}>
+                  Синхронизация совсем запуталась — очистить облако
+                </ComicButton>
+              ) : (
+                <div className="space-y-2 rounded-2xl border-3 border-pink-deep bg-white p-3 shadow-pop-sm">
+                  <p className="text-xs font-semibold">
+                    Для случаев вроде «несколько случайных семей, дубликаты людей, и по-другому уже не распутать».
+                    Это удалит <b>ВСЕ</b> семьи в этом облаке целиком — у всех, кто подключён, сотрутся баллы,
+                    задачи и история. После этого можно начать заново: кто-то один создаёт новый код, остальные
+                    присоединяются по новой.
+                  </p>
+                  <p className="text-xs font-bold">
+                    Чтобы подтвердить, наберите <span className="rounded bg-paper px-1">УДАЛИТЬ</span>:
+                  </p>
+                  <input
+                    value={wipeConfirmText}
+                    onChange={(e) => setWipeConfirmText(e.target.value)}
+                    className="w-full rounded-xl border-3 border-ink px-3 py-2 font-semibold outline-none"
+                    placeholder="УДАЛИТЬ"
+                  />
+                  <div className="flex gap-2">
+                    <ComicButton
+                      variant="pink"
+                      className="flex-1"
+                      disabled={wiping || wipeConfirmText.trim().toUpperCase() !== "УДАЛИТЬ"}
+                      onClick={async () => {
+                        setWiping(true);
+                        const ok = await wipeCloudFamily();
+                        setWiping(false);
+                        if (ok) {
+                          setWipeOpen(false);
+                          setWipeConfirmText("");
+                        }
+                      }}
+                    >
+                      {wiping ? "Стираем…" : "Стереть всё облако"}
+                    </ComicButton>
+                    <ComicButton
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setWipeOpen(false);
+                        setWipeConfirmText("");
+                      }}
+                    >
+                      Отмена
+                    </ComicButton>
+                  </div>
+                  {lastSyncError && <p className="text-xs font-bold text-pink-deep">Причина: {lastSyncError}</p>}
+                </div>
+              )}
             </div>
           )}
         </section>

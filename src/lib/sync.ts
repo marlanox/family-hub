@@ -143,6 +143,25 @@ export async function createRemoteFamily(id: string, name: string): Promise<Sync
   }
 }
 
+/**
+ * Deletes every family (and, via `on delete cascade`, every member, task,
+ * occurrence, badge, activity row, push subscription — everything) from
+ * this device's connected cloud project. A panic button for "sync got
+ * tangled into multiple accidental families" — lets someone undo that
+ * mess from their phone, with no SQL Editor or computer needed.
+ */
+export async function wipeAllCloudFamilies(): Promise<SyncResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
+  try {
+    const { error } = await supabase.from("families").delete().not("id", "is", null);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function pushMember(member: FamilyMember, familyId: string) {
   const supabase = getSupabase();
   if (!supabase) return;
