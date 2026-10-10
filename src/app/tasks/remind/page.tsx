@@ -148,6 +148,9 @@ function TaskReminderContent() {
         >
           ✓ Сделано
         </ComicButton>
+        <ComicButton variant="sky" size="lg" className="w-full" onClick={() => { snoozeTask(task.id, 0.25); router.push("/"); }}>
+          Через 15 минут
+        </ComicButton>
         <ComicButton variant="sky" size="lg" className="w-full" onClick={() => { snoozeTask(task.id, 1); router.push("/"); }}>
           Через 1 час
         </ComicButton>

@@ -282,7 +282,7 @@ $$ language plpgsql security definer;
 create or replace function snooze_task_occurrence(
   p_task_id uuid,
   p_scheduled_for date,
-  p_hours integer
+  p_hours numeric
 ) returns void as $$
 begin
   insert into task_occurrences (task_id, scheduled_for, status, snoozed_until, reminders_sent)

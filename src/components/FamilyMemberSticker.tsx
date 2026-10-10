@@ -38,7 +38,7 @@ export function FamilyMemberSticker({ member, crown, size = "md", editHint }: Fa
             <img
               src={member.photoUrl}
               alt={member.displayName}
-              className="h-full w-full object-cover object-top"
+              className="h-full w-full object-cover object-center"
             />
           ) : (
             <span className="font-display text-3xl text-ink/70">
