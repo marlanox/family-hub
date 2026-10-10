@@ -645,7 +645,14 @@ export const useFamilyStore = create<FamilyHubState>()(
       removeTask: (taskId) => {
         set((state) => ({ tasks: state.tasks.filter((t) => t.id !== taskId) }));
         const code = get().familyCode;
-        if (code) void deleteRemoteTask(taskId);
+        if (code) {
+          void deleteRemoteTask(taskId).then((result) => {
+            // If the remote delete silently failed (e.g. a device whose
+            // cloud schema is missing a column this needs), the next
+            // sync pull would otherwise resurrect it with no explanation.
+            if (!result.ok) set({ lastSyncError: result.error });
+          });
+        }
       },
 
       addMember: (name, accentColor) => {
@@ -670,7 +677,11 @@ export const useFamilyStore = create<FamilyHubState>()(
           whoAmI: state.whoAmI === id ? null : state.whoAmI,
         }));
         const code = get().familyCode;
-        if (code) void deleteRemoteMember(id);
+        if (code) {
+          void deleteRemoteMember(id).then((result) => {
+            if (!result.ok) set({ lastSyncError: result.error });
+          });
+        }
       },
 
       updateMemberPhoto: (id, photoUrl) => {

@@ -66,6 +66,16 @@ export default function SettingsPage() {
       </header>
 
       <main className="flex-1 space-y-6 px-4 pb-8 pt-4">
+        {lastSyncError && (
+          <div className="flex items-start justify-between gap-2 rounded-2xl border-3 border-pink-deep bg-white p-3 shadow-pop-sm">
+            <p className="text-xs font-bold text-pink-deep">
+              Что-то не синхронизировалось с облаком: {lastSyncError}
+            </p>
+            <button onClick={clearSyncError} aria-label="Скрыть" className="shrink-0 text-xs font-bold text-ink/40">
+              ✕
+            </button>
+          </div>
+        )}
         <section>
           <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Это устройство</h2>
           <div className="flex items-center justify-between rounded-2xl border-3 border-ink bg-white p-3 shadow-pop-sm">

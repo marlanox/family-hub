@@ -187,25 +187,32 @@ export async function pushTask(task: Task, familyId: string) {
 // identical to "not pushed there yet," so mergeSnapshot would never
 // know to remove its own cached copy and the item would silently
 // reappear. A tombstone lets every device see the delete and act on it.
-export async function deleteRemoteTask(taskId: string) {
+export async function deleteRemoteTask(taskId: string): Promise<SyncResult> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   const now = new Date().toISOString();
   try {
-    await supabase.from("tasks").update({ deleted_at: now, updated_at: now }).eq("id", taskId);
-  } catch {
-    // best-effort
+    const { error } = await supabase.from("tasks").update({ deleted_at: now, updated_at: now }).eq("id", taskId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-export async function deleteRemoteMember(memberId: string) {
+export async function deleteRemoteMember(memberId: string): Promise<SyncResult> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   const now = new Date().toISOString();
   try {
-    await supabase.from("family_members").update({ deleted_at: now, updated_at: now }).eq("id", memberId);
-  } catch {
-    // best-effort
+    const { error } = await supabase
+      .from("family_members")
+      .update({ deleted_at: now, updated_at: now })
+      .eq("id", memberId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
