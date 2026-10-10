@@ -284,37 +284,15 @@ export default function SettingsPage() {
 
           {isSyncAvailable() && !familyCode && (
             <div className="space-y-3">
-              <p className="px-1 text-xs font-semibold text-ink/50">
-                Один человек в семье создаёт код здесь — остальные, уже вписав то же облако в Шаге 1, вводят этот
-                код на своих телефонах ниже. После этого баллы и задачи общие.
-              </p>
-              <ComicButton
-                variant="mint"
-                className="w-full"
-                disabled={creatingSync}
-                onClick={async () => {
-                  setCreateError(null);
-                  clearSyncError();
-                  setCreatingSync(true);
-                  const code = await enableSync();
-                  setCreatingSync(false);
-                  if (!code) setCreateError("Не получилось создать код.");
-                }}
-              >
-                {creatingSync ? "Создаём…" : "Создать код синхронизации"}
-              </ComicButton>
-              {createError && (
-                <p className="px-1 text-xs font-bold text-pink-deep">
-                  {createError}
-                  {lastSyncError ? ` Причина: ${lastSyncError}` : " Проверьте интернет и попробуйте ещё раз."}
+              <div className="rounded-2xl border-3 border-ink bg-sky-soft p-3 space-y-2">
+                <p className="text-xs font-bold">
+                  Если код синхронизации у вас уже ЕСТЬ (кто-то в семье его создал) — вставьте его сюда:
                 </p>
-              )}
-              <div className="rounded-2xl border-3 border-dashed border-ink/30 p-3 space-y-2">
                 <input
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value)}
                   placeholder="Вставить код от другого телефона"
-                  className="w-full rounded-xl border-3 border-ink px-3 py-2 font-semibold outline-none"
+                  className="w-full rounded-xl border-3 border-ink bg-white px-3 py-2 font-semibold outline-none"
                 />
                 <ComicButton
                   variant="sky"
@@ -336,6 +314,33 @@ export default function SettingsPage() {
                   </p>
                 )}
               </div>
+
+              <p className="px-1 text-xs font-semibold text-ink/50">
+                Кода ещё ни у кого нет? Тогда вы первая/первый — нажмите ниже, чтобы создать его, и дайте
+                получившийся код остальным (они вставят его в поле выше на своих телефонах). Если код уже есть —
+                не нажимайте эту кнопку, она создаёт отдельную, никак не связанную семью.
+              </p>
+              <ComicButton
+                variant="outline"
+                className="w-full"
+                disabled={creatingSync}
+                onClick={async () => {
+                  setCreateError(null);
+                  clearSyncError();
+                  setCreatingSync(true);
+                  const code = await enableSync();
+                  setCreatingSync(false);
+                  if (!code) setCreateError("Не получилось создать код.");
+                }}
+              >
+                {creatingSync ? "Создаём…" : "Создать новый код (только первому)"}
+              </ComicButton>
+              {createError && (
+                <p className="px-1 text-xs font-bold text-pink-deep">
+                  {createError}
+                  {lastSyncError ? ` Причина: ${lastSyncError}` : " Проверьте интернет и попробуйте ещё раз."}
+                </p>
+              )}
             </div>
           )}
 
