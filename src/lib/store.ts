@@ -699,16 +699,41 @@ export const useFamilyStore = create<FamilyHubState>()(
         }
         const state = get();
         const merged = mergeSnapshot(state, result.snapshot);
+
+        // Onboarding forces every fresh device to create a local "me"
+        // member before it can even reach Settings to join a family —
+        // so a device joining an EXISTING family always walks in with a
+        // throwaway duplicate of whoever it already typed as "me". If
+        // that name matches someone already in the family being joined,
+        // treat them as the same person instead of leaving two "Наташа"
+        // entries around.
+        let members = merged.members;
+        let whoAmI = state.whoAmI;
+        const remoteIds = new Set(result.snapshot.members.map((m) => m.id));
+        const strayLocal = state.members.find((m) => m.id === state.whoAmI && !remoteIds.has(m.id));
+        if (strayLocal) {
+          const match = result.snapshot.members.find(
+            (m) => m.id !== strayLocal.id && m.displayName.trim().toLowerCase() === strayLocal.displayName.trim().toLowerCase(),
+          );
+          if (match) {
+            members = members.filter((m) => m.id !== strayLocal.id);
+            whoAmI = match.id;
+            void deleteRemoteMember(strayLocal.id);
+          }
+        }
+
         set({
           familyCode: trimmed,
           ...merged,
+          members,
+          whoAmI,
           lastSyncedAt: new Date().toISOString(),
           syncing: false,
           lastSyncError: null,
         });
         // Any local-only data (created before this device joined) needs
         // pushing up, or it only exists here and vanishes on next pull.
-        await Promise.all(merged.members.map((m) => pushMember(m, trimmed)));
+        await Promise.all(members.map((m) => pushMember(m, trimmed)));
         await Promise.all(merged.tasks.map((t) => pushTask(t, trimmed)));
         return true;
       },
