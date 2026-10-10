@@ -5,7 +5,7 @@ import { ColorPicker } from "@/components/ColorPicker";
 import { Icon } from "@/components/Icon";
 import { playSound, SOUND_THEMES } from "@/lib/sound";
 import { isSyncAvailable, usingCustomSupabase, activeSupabaseUrl } from "@/lib/supabaseClient";
-import { previewFamily } from "@/lib/sync";
+import { notifyFamily, previewFamily } from "@/lib/sync";
 import { enablePushForMember, pushSupported } from "@/lib/push";
 import { useFamilyStore } from "@/lib/store";
 import type { FamilyMember } from "@/lib/types";
@@ -17,6 +17,7 @@ export default function SettingsPage() {
   const members = useFamilyStore((s) => s.members);
   const addMember = useFamilyStore((s) => s.addMember);
   const removeMember = useFamilyStore((s) => s.removeMember);
+  const renameMember = useFamilyStore((s) => s.renameMember);
   const soundEnabled = useFamilyStore((s) => s.soundEnabled);
   const toggleSound = useFamilyStore((s) => s.toggleSound);
   const soundTheme = useFamilyStore((s) => s.soundTheme);
@@ -48,12 +49,16 @@ export default function SettingsPage() {
   const [ownKey, setOwnKey] = useState("");
   const [creatingSync, setCreatingSync] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState("");
   const [resetOpen, setResetOpen] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [wipeOpen, setWipeOpen] = useState(false);
   const [wipeConfirmText, setWipeConfirmText] = useState("");
   const [wiping, setWiping] = useState(false);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
+  const [testingPush, setTestingPush] = useState(false);
+  const [testPushStatus, setTestPushStatus] = useState<string | null>(null);
   const [pushBusy, setPushBusy] = useState(false);
 
   return (
@@ -119,6 +124,26 @@ export default function SettingsPage() {
               {pushBusy ? "Включаем…" : "🔔 Включить уведомления"}
             </ComicButton>
             {pushStatus && <p className="mt-2 px-1 text-xs font-bold">{pushStatus}</p>}
+
+            <ComicButton
+              variant="outline"
+              className="mt-2 w-full"
+              disabled={testingPush}
+              onClick={async () => {
+                setTestingPush(true);
+                setTestPushStatus(null);
+                const result = await notifyFamily(familyCode, [], "Family Hub", "Тестовое уведомление 🔔");
+                setTestingPush(false);
+                setTestPushStatus(
+                  result.ok
+                    ? "Запрос ушёл на сервер ✓ Если push всё равно не пришёл ни на одно устройство — проверьте, что Edge Function send-push развёрнута и у неё заданы VAPID-секреты."
+                    : `Не дошло: ${result.error}`,
+                );
+              }}
+            >
+              {testingPush ? "Проверяем…" : "Проверить уведомления всем"}
+            </ComicButton>
+            {testPushStatus && <p className="mt-2 px-1 text-xs font-bold">{testPushStatus}</p>}
           </section>
         )}
 
@@ -129,27 +154,62 @@ export default function SettingsPage() {
             членов семьи. Ролей «админ»/«участник» нет.
           </p>
           <div className="space-y-2">
-            {members.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 rounded-2xl border-3 border-ink bg-white p-3 shadow-pop-sm">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink bg-paper font-display text-sm">
-                  {m.displayName.charAt(0)}
-                </span>
-                <p className="flex-1 font-semibold">
-                  {m.displayName}
-                  {m.id === whoAmI && (
-                    <span className="ml-2 rounded-full border-2 border-ink bg-mint px-2 py-0.5 text-[10px] font-bold uppercase">
-                      это ты
-                    </span>
-                  )}
-                </p>
-                <button
-                  onClick={() => confirm(`Убрать ${m.displayName} из семьи?`) && removeMember(m.id)}
-                  className="rounded-full border-2 border-ink px-2 py-1 text-[11px] font-bold uppercase text-pink-deep"
-                >
-                  Убрать
-                </button>
-              </div>
-            ))}
+            {members.map((m) =>
+              renamingId === m.id ? (
+                <div key={m.id} className="flex items-center gap-2 rounded-2xl border-3 border-ink bg-white p-3 shadow-pop-sm">
+                  <input
+                    autoFocus
+                    value={renameText}
+                    onChange={(e) => setRenameText(e.target.value)}
+                    className="min-w-0 flex-1 rounded-xl border-3 border-ink px-3 py-1.5 font-semibold outline-none"
+                  />
+                  <ComicButton
+                    variant="mint"
+                    className="!px-3 !py-1.5 !text-xs"
+                    disabled={!renameText.trim()}
+                    onClick={() => {
+                      renameMember(m.id, renameText);
+                      setRenamingId(null);
+                    }}
+                  >
+                    ОК
+                  </ComicButton>
+                  <ComicButton variant="outline" className="!px-3 !py-1.5 !text-xs" onClick={() => setRenamingId(null)}>
+                    Отмена
+                  </ComicButton>
+                </div>
+              ) : (
+                <div key={m.id} className="flex items-center gap-3 rounded-2xl border-3 border-ink bg-white p-3 shadow-pop-sm">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink bg-paper font-display text-sm">
+                    {m.displayName.charAt(0)}
+                  </span>
+                  <p className="flex-1 font-semibold">
+                    {m.displayName}
+                    {m.id === whoAmI && (
+                      <span className="ml-2 rounded-full border-2 border-ink bg-mint px-2 py-0.5 text-[10px] font-bold uppercase">
+                        это ты
+                      </span>
+                    )}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setRenamingId(m.id);
+                      setRenameText(m.displayName);
+                    }}
+                    aria-label={`Переименовать ${m.displayName}`}
+                    className="rounded-full border-2 border-ink px-2 py-1 text-[11px] font-bold uppercase"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => confirm(`Убрать ${m.displayName} из семьи?`) && removeMember(m.id)}
+                    className="rounded-full border-2 border-ink px-2 py-1 text-[11px] font-bold uppercase text-pink-deep"
+                  >
+                    Убрать
+                  </button>
+                </div>
+              ),
+            )}
           </div>
 
           <div className="mt-3 space-y-2 rounded-2xl border-3 border-dashed border-ink/30 p-3">

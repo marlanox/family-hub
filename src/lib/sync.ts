@@ -162,23 +162,31 @@ export async function wipeAllCloudFamilies(): Promise<SyncResult> {
   }
 }
 
-export async function pushMember(member: FamilyMember, familyId: string) {
+export async function pushMember(member: FamilyMember, familyId: string): Promise<SyncResult> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
-    await supabase.from("family_members").upsert(memberToRow(member, familyId));
-  } catch {
-    // best-effort
+    // upsert() resolves with { error } rather than throwing on a DB-level
+    // failure (e.g. a column this payload sets doesn't exist yet) — a
+    // bare try/catch around it never saw those, so a broken push looked
+    // identical to a successful one from here.
+    const { error } = await supabase.from("family_members").upsert(memberToRow(member, familyId));
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-export async function pushTask(task: Task, familyId: string) {
+export async function pushTask(task: Task, familyId: string): Promise<SyncResult> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
-    await supabase.from("tasks").upsert(taskToRow(task, familyId));
-  } catch {
-    // best-effort
+    const { error } = await supabase.from("tasks").upsert(taskToRow(task, familyId));
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -240,31 +248,35 @@ export async function pushComplete(
   }
 }
 
-export async function pushRefuse(taskId: string, dateISO: string, reason: string | undefined) {
+export async function pushRefuse(taskId: string, dateISO: string, reason: string | undefined): Promise<SyncResult> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
-    await supabase.rpc("refuse_task_occurrence", {
+    const { error } = await supabase.rpc("refuse_task_occurrence", {
       p_task_id: taskId,
       p_scheduled_for: dateISO,
       p_reason: reason ?? null,
     });
-  } catch {
-    // best-effort
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-export async function pushSnooze(taskId: string, dateISO: string, hours: number) {
+export async function pushSnooze(taskId: string, dateISO: string, hours: number): Promise<SyncResult> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
-    await supabase.rpc("snooze_task_occurrence", {
+    const { error } = await supabase.rpc("snooze_task_occurrence", {
       p_task_id: taskId,
       p_scheduled_for: dateISO,
       p_hours: hours,
     });
-  } catch {
-    // best-effort
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -300,23 +312,25 @@ export async function notifyFamily(
   excludeMemberIds: string[],
   title: string,
   body: string,
-) {
+): Promise<SyncResult> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
-    await supabase.functions.invoke("send-push", {
+    const { error } = await supabase.functions.invoke("send-push", {
       body: { familyId, excludeMemberIds, title, body },
     });
-  } catch {
-    // Function not deployed, or offline — notifications are a bonus.
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-export async function pushActivity(event: ActivityEvent, familyId: string) {
+export async function pushActivity(event: ActivityEvent, familyId: string): Promise<SyncResult> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
-    await supabase.from("family_activity").insert({
+    const { error } = await supabase.from("family_activity").insert({
       family_id: familyId,
       type: event.type,
       member_id: event.memberId || null,
@@ -324,8 +338,10 @@ export async function pushActivity(event: ActivityEvent, familyId: string) {
       points: event.points ?? null,
       message: event.message,
     });
-  } catch {
-    // best-effort
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 

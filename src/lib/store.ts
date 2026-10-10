@@ -130,6 +130,7 @@ interface FamilyHubState {
   addMember: (name: string, accentColor?: FamilyMember["accentColor"]) => string;
   removeMember: (id: string) => void;
   updateMemberPhoto: (id: string, photoUrl: string | null) => void;
+  renameMember: (id: string, name: string) => void;
   setWhoAmI: (id: string | null) => void;
   finishOnboarding: () => void;
   resetAll: () => void;
@@ -549,7 +550,9 @@ export const useFamilyStore = create<FamilyHubState>()(
             members.map((m) => m.id),
             "Family Hub",
             completedMessage,
-          );
+          ).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
         }
       },
 
@@ -594,7 +597,9 @@ export const useFamilyStore = create<FamilyHubState>()(
             },
             state.familyCode,
           );
-          void notifyFamily(state.familyCode, members.map((m) => m.id), "Family Hub", refusedMessage);
+          void notifyFamily(state.familyCode, members.map((m) => m.id), "Family Hub", refusedMessage).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
         }
       },
 
@@ -640,12 +645,16 @@ export const useFamilyStore = create<FamilyHubState>()(
 
         const code = state.familyCode;
         if (code) {
-          void pushTask(task, code);
+          void pushTask(task, code).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
           void pushActivity(
             { id: "", familyId: code, type: "task_assigned", memberId: input.creatorId, taskId: task.id, message, createdAt: now },
             code,
           );
-          void notifyFamily(code, creator ? [creator.id] : [], "Family Hub", message);
+          void notifyFamily(code, creator ? [creator.id] : [], "Family Hub", message).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
         }
         return id;
       },
@@ -675,7 +684,11 @@ export const useFamilyStore = create<FamilyHubState>()(
         });
         playSound("created", get().soundEnabled, get().soundTheme);
         const code = get().familyCode;
-        if (code) void pushMember(member, code);
+        if (code) {
+          void pushMember(member, code).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
+        }
         return member.id;
       },
 
@@ -700,7 +713,28 @@ export const useFamilyStore = create<FamilyHubState>()(
         }));
         const code = get().familyCode;
         const updated = get().members.find((m) => m.id === id);
-        if (code && updated) void pushMember(updated, code);
+        if (code && updated) {
+          void pushMember(updated, code).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
+        }
+      },
+
+      renameMember: (id, name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        set((state) => ({
+          members: state.members.map((m) =>
+            m.id === id ? { ...m, displayName: trimmed, updatedAt: new Date().toISOString() } : m,
+          ),
+        }));
+        const code = get().familyCode;
+        const updated = get().members.find((m) => m.id === id);
+        if (code && updated) {
+          void pushMember(updated, code).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
+        }
       },
 
       setWhoAmI: (id) => set({ whoAmI: id }),
