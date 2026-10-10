@@ -31,6 +31,7 @@ const DOW = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 export default function NewTaskPage() {
   const router = useRouter();
   const members = useFamilyStore((s) => s.members);
+  const whoAmI = useFamilyStore((s) => s.whoAmI);
   const addTask = useFamilyStore((s) => s.addTask);
 
   const [step, setStep] = useState<Step>("pick");
@@ -104,7 +105,10 @@ export default function NewTaskPage() {
       points,
       difficulty,
       assignee: assignFamily ? { kind: "family" } : { kind: "member", memberIds: assigneeIds },
-      creatorId: (assignFamily ? members[0]?.id : assigneeIds[0]) ?? members[0]?.id ?? "",
+      // Who actually created the task, not who it's assigned to — those
+      // used to be conflated, so "Маша назначила Ване" showed up in
+      // Activity as "Ваня назначил(а) Ване".
+      creatorId: whoAmI ?? members[0]?.id ?? "",
       recurrence: { type: recurrence, daysOfWeek: recurrence === "custom_days" ? daysOfWeek : undefined },
       dueTime: recurrence !== "once" || dueTime ? dueTime : undefined,
       onceDate: recurrence === "once" ? onceDate : undefined,
