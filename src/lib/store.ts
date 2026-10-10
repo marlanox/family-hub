@@ -117,6 +117,12 @@ interface FamilyHubState {
   lastSyncError: string | null;
   customSupabaseUrl: string | null;
   customSupabaseKey: string | null;
+  // Member/task ids this device has actually seen on the server as of
+  // its last successful sync — lets a merge tell "the server deleted
+  // this" apart from "this hasn't been pushed yet" even when the
+  // deletion was a hard delete with no tombstone to read back.
+  knownRemoteMemberIds: string[];
+  knownRemoteTaskIds: string[];
 
   occurrenceFor: (taskId: string, dateISO?: string) => OccurrenceRecord;
   todaysTasks: (dateISO?: string) => Task[];
@@ -196,9 +202,19 @@ function mergeOccurrences(
   return merged;
 }
 
-function mergeMembers(local: FamilyMember[], remote: FamilyMember[]): FamilyMember[] {
+function mergeMembers(local: FamilyMember[], remote: FamilyMember[], knownRemoteIds: Set<string>): FamilyMember[] {
+  const remoteIds = new Set(remote.map((r) => r.id));
   const byId = new Map<string, FamilyMember>();
-  for (const m of local) byId.set(m.id, m);
+  for (const m of local) {
+    // This device previously confirmed this member existed on the
+    // server, but the server has no record of them at all now — a hard
+    // delete (e.g. one that happened before the deleted_at column
+    // existed), not a missing-not-yet-pushed member. Drop it locally
+    // too, instead of treating the gap as "not synced yet" and pushing
+    // it right back up the next time this device syncs.
+    if (knownRemoteIds.has(m.id) && !remoteIds.has(m.id)) continue;
+    byId.set(m.id, m);
+  }
   for (const r of remote) {
     const l = byId.get(r.id);
     if (!l) {
@@ -229,9 +245,13 @@ function mergeMembers(local: FamilyMember[], remote: FamilyMember[]): FamilyMemb
   return Array.from(byId.values()).filter((m) => !m.deletedAt);
 }
 
-function mergeTasks(local: Task[], remote: Task[]): Task[] {
+function mergeTasks(local: Task[], remote: Task[], knownRemoteIds: Set<string>): Task[] {
+  const remoteIds = new Set(remote.map((r) => r.id));
   const byId = new Map<string, Task>();
-  for (const t of local) byId.set(t.id, t);
+  for (const t of local) {
+    if (knownRemoteIds.has(t.id) && !remoteIds.has(t.id)) continue;
+    byId.set(t.id, t);
+  }
   for (const r of remote) {
     const l = byId.get(r.id);
     if (!l) {
@@ -293,6 +313,8 @@ interface MergeResult {
   familyPoints: number;
   familyMilestonesUnlocked: number;
   familyRewardHistory: FamilyRewardHistoryEntry[];
+  knownRemoteMemberIds: string[];
+  knownRemoteTaskIds: string[];
 }
 
 function mergeSnapshot(
@@ -305,6 +327,8 @@ function mergeSnapshot(
     familyPoints: number;
     familyMilestonesUnlocked: number;
     familyRewardHistory: FamilyRewardHistoryEntry[];
+    knownRemoteMemberIds: string[];
+    knownRemoteTaskIds: string[];
   },
   remote: RemoteSnapshot,
 ): MergeResult {
@@ -319,12 +343,16 @@ function mergeSnapshot(
           };
 
   return {
-    members: mergeMembers(local.members, remote.members),
-    tasks: mergeTasks(local.tasks, remote.tasks),
+    members: mergeMembers(local.members, remote.members, new Set(local.knownRemoteMemberIds)),
+    tasks: mergeTasks(local.tasks, remote.tasks, new Set(local.knownRemoteTaskIds)),
     occurrences: mergeOccurrences(local.occurrences, remote.occurrences as Record<string, OccurrenceRecord>),
     activity: mergeActivity(local.activity, remote.activity),
     earnedBadges: mergeBadges(local.earnedBadges, remote.earnedBadges),
     familyRewardHistory: mergeRewardHistory(local.familyRewardHistory, remote.familyRewardHistory),
+    // What the server actually has right now — compared against next
+    // time, to tell "deleted on the server" apart from "not pushed yet".
+    knownRemoteMemberIds: remote.members.map((m) => m.id),
+    knownRemoteTaskIds: remote.tasks.map((t) => t.id),
     ...familyPool,
   };
 }
@@ -342,6 +370,8 @@ const EMPTY_STATE = {
   onboardingComplete: false,
   familyCode: null as string | null,
   lastSyncedAt: null as string | null,
+  knownRemoteMemberIds: [] as string[],
+  knownRemoteTaskIds: [] as string[],
 };
 
 export const useFamilyStore = create<FamilyHubState>()(
