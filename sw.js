@@ -1,15 +1,14 @@
 // Family Hub service worker.
 //
-// Two jobs today:
+// Two jobs:
 //   1. Cache the app shell so the installed PWA opens instantly and works
 //      offline (all real data lives in localStorage, read by the page
 //      itself — this worker only caches the code/assets).
-//   2. Skeleton push + notification-click handlers, wired up but inert
-//      until a backend exists to send pushes (see docs/ARCHITECTURE.md
-//      "Notifications" for the free Supabase Edge Function path that
-//      would drive these later).
+//   2. Push + notification-click handlers — see supabase/functions for
+//      what actually sends these (send-push for "something just
+//      happened", send-reminders for "a task is due now").
 
-const CACHE_NAME = "family-hub-shell-v1";
+const CACHE_NAME = "family-hub-shell-v2";
 // Derived from where this worker was actually registered, so the same
 // file works whether the app is served from "/" or a subpath like
 // "/family-hub/" (GitHub Pages project sites).
@@ -69,11 +68,17 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url ?? "/";
+  const path = event.notification.data?.url ?? "/";
+  // BASE already ends with "/" and path starts with "/" — drop one so a
+  // GitHub Pages subpath (e.g. "/family-hub/") doesn't get doubled up.
+  const targetUrl = new URL(BASE.slice(0, -1) + path, self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window" }).then((clients) => {
       const existing = clients.find((c) => c.url.includes(self.location.origin));
-      if (existing) return existing.focus();
+      // A tab that's already open needs to actually navigate to the
+      // task — just focusing it left whoever tapped the notification
+      // staring at whatever screen they'd last left open.
+      if (existing) return existing.navigate(targetUrl).then((c) => c.focus()).catch(() => existing.focus());
       return self.clients.openWindow(targetUrl);
     }),
   );
