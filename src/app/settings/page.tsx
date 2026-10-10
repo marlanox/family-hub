@@ -197,15 +197,87 @@ export default function SettingsPage() {
         </section>
 
         <section>
-          <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Синхронизация между телефонами</h2>
+          <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Шаг 1 · Облако семьи</h2>
+          <p className="mb-2 px-1 text-xs font-semibold text-ink/50">
+            Синхронизация работает через бесплатный Supabase-проект — но у семьи он один на всех, не по одному на
+            человека. Если в семье уже кто-то настроил синхронизацию (создал код) — у него уже есть URL и ключ,
+            откройте этот же раздел на его телефоне и перепишите оттуда (ничего нового заводить не нужно, это те
+            же два значения). Только самый первый человек в семье заводит новый проект на supabase.com (2 минуты,
+            только email).
+            {usingCustomSupabase() && activeSupabaseUrl() && (
+              <>
+                {" "}
+                Сейчас это устройство использует: <code className="rounded bg-paper px-1 break-all">{activeSupabaseUrl()}</code>
+              </>
+            )}
+          </p>
+          {!ownProjectOpen ? (
+            <ComicButton variant="outline" className="w-full" onClick={() => setOwnProjectOpen(true)}>
+              {usingCustomSupabase() ? "Изменить облако" : "Подключить облако семьи"}
+            </ComicButton>
+          ) : (
+            <div className="space-y-2 rounded-2xl border-3 border-dashed border-ink/30 p-3">
+              <input
+                value={ownUrl}
+                onChange={(e) => setOwnUrl(e.target.value)}
+                placeholder="Project URL (https://xxxx.supabase.co)"
+                className="w-full rounded-xl border-3 border-ink px-3 py-2 text-sm font-semibold outline-none"
+              />
+              <input
+                value={ownKey}
+                onChange={(e) => setOwnKey(e.target.value)}
+                placeholder="anon public key"
+                className="w-full rounded-xl border-3 border-ink px-3 py-2 text-sm font-semibold outline-none"
+              />
+              <div className="flex gap-2">
+                <ComicButton
+                  variant="mint"
+                  className="flex-1"
+                  disabled={!ownUrl.trim() || !ownKey.trim()}
+                  onClick={() => {
+                    setCustomSupabaseConfig(ownUrl.trim(), ownKey.trim());
+                    setOwnProjectOpen(false);
+                    setOwnUrl("");
+                    setOwnKey("");
+                  }}
+                >
+                  Сохранить
+                </ComicButton>
+                {usingCustomSupabase() && (
+                  <ComicButton
+                    variant="pink"
+                    className="flex-1"
+                    onClick={() => {
+                      setCustomSupabaseConfig(null, null);
+                      setOwnProjectOpen(false);
+                    }}
+                  >
+                    Убрать свой
+                  </ComicButton>
+                )}
+                <ComicButton variant="outline" className="flex-1" onClick={() => setOwnProjectOpen(false)}>
+                  Отмена
+                </ComicButton>
+              </div>
+              <p className="text-[11px] font-semibold text-ink/40">
+                Если вы не первый в семье: спросите URL и anon key у того, кто уже настроил синхронизацию (он
+                посмотрит их в этом же разделе) и впишите один в один. Заводите свой проект на supabase.com только
+                если в семье синхронизации ещё никогда не было — тогда после создания проекта выполните{" "}
+                <code className="rounded bg-paper px-1">supabase/schema.sql</code> в его SQL Editor.
+              </p>
+            </div>
+          )}
+        </section>
+
+        <section>
+          <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Шаг 2 · Код синхронизации</h2>
 
           {!isSyncAvailable() && (
             <div className="space-y-2 rounded-2xl border-3 border-ink bg-white p-3 text-sm font-semibold shadow-pop-sm">
               <p>
-                Сейчас всё хранится только на этом устройстве (офлайн, бесплатно, без аккаунта). Чтобы баллы и
-                задачи синхронизировались между телефонами семьи, сначала подключите свой бесплатный
-                Supabase-проект в разделе «Своё облако» ниже — без этого шага у всех есть выбор не создавать
-                облако вообще, но нет выбора использовать чьё-то чужое: у каждой семьи оно только своё.
+                Сейчас всё хранится только на этом устройстве (офлайн, бесплатно, без аккаунта). Сначала заполните
+                «Шаг 1 · Облако семьи» выше — после этого здесь появится кнопка «Создать код синхронизации» или
+                поле «Присоединиться по коду».
               </p>
             </div>
           )}
@@ -213,7 +285,8 @@ export default function SettingsPage() {
           {isSyncAvailable() && !familyCode && (
             <div className="space-y-3">
               <p className="px-1 text-xs font-semibold text-ink/50">
-                Один человек создаёт код, остальные вводят его на своих телефонах — дальше баллы и задачи общие.
+                Один человек в семье создаёт код здесь — остальные, уже вписав то же облако в Шаге 1, вводят этот
+                код на своих телефонах ниже. После этого баллы и задачи общие.
               </p>
               <ComicButton
                 variant="mint"
@@ -284,8 +357,9 @@ export default function SettingsPage() {
                 </ComicButton>
               </div>
               <p className="px-1 text-[11px] font-semibold text-ink/40">
-                Введите этот код в настройках на других телефонах семьи. Обновляется автоматически каждые ~20 секунд,
-                пока приложение открыто{lastSyncedAt ? ` · последний раз: ${new Date(lastSyncedAt).toLocaleTimeString("ru-RU")}` : ""}.
+                На другом телефоне: сначала Шаг 1 (то же облако), потом вставить этот код в Шаг 2. Обновляется
+                автоматически каждые ~20 секунд, пока приложение открыто
+                {lastSyncedAt ? ` · последний раз: ${new Date(lastSyncedAt).toLocaleTimeString("ru-RU")}` : ""}.
               </p>
               <div className="flex gap-2">
                 <ComicButton variant="sky" className="flex-1 !text-xs" disabled={syncing} onClick={() => pullSync()}>
@@ -295,76 +369,6 @@ export default function SettingsPage() {
                   Отключить
                 </ComicButton>
               </div>
-            </div>
-          )}
-        </section>
-
-        <section>
-          <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Своё облако</h2>
-          <p className="mb-2 px-1 text-xs font-semibold text-ink/50">
-            Синхронизация работает только через ваш собственный бесплатный Supabase-проект (2 минуты, только
-            email) — заведите его и впишите сюда. Прислали кому-то ссылку на это же приложение? Пусть заведёт свой
-            отдельный проект и впишет его на своём телефоне — тогда его семья хранится в его собственном облаке, а
-            не в вашем, и наоборот.
-            {usingCustomSupabase() && activeSupabaseUrl() && (
-              <>
-                {" "}
-                Сейчас это устройство использует: <code className="rounded bg-paper px-1 break-all">{activeSupabaseUrl()}</code>
-              </>
-            )}
-          </p>
-          {!ownProjectOpen ? (
-            <ComicButton variant="outline" className="w-full" onClick={() => setOwnProjectOpen(true)}>
-              {usingCustomSupabase() ? "Изменить свой проект" : "Подключить свой Supabase-проект"}
-            </ComicButton>
-          ) : (
-            <div className="space-y-2 rounded-2xl border-3 border-dashed border-ink/30 p-3">
-              <input
-                value={ownUrl}
-                onChange={(e) => setOwnUrl(e.target.value)}
-                placeholder="Project URL (https://xxxx.supabase.co)"
-                className="w-full rounded-xl border-3 border-ink px-3 py-2 text-sm font-semibold outline-none"
-              />
-              <input
-                value={ownKey}
-                onChange={(e) => setOwnKey(e.target.value)}
-                placeholder="anon public key"
-                className="w-full rounded-xl border-3 border-ink px-3 py-2 text-sm font-semibold outline-none"
-              />
-              <div className="flex gap-2">
-                <ComicButton
-                  variant="mint"
-                  className="flex-1"
-                  disabled={!ownUrl.trim() || !ownKey.trim()}
-                  onClick={() => {
-                    setCustomSupabaseConfig(ownUrl.trim(), ownKey.trim());
-                    setOwnProjectOpen(false);
-                    setOwnUrl("");
-                    setOwnKey("");
-                  }}
-                >
-                  Сохранить
-                </ComicButton>
-                {usingCustomSupabase() && (
-                  <ComicButton
-                    variant="pink"
-                    className="flex-1"
-                    onClick={() => {
-                      setCustomSupabaseConfig(null, null);
-                      setOwnProjectOpen(false);
-                    }}
-                  >
-                    Убрать свой
-                  </ComicButton>
-                )}
-                <ComicButton variant="outline" className="flex-1" onClick={() => setOwnProjectOpen(false)}>
-                  Отмена
-                </ComicButton>
-              </div>
-              <p className="text-[11px] font-semibold text-ink/40">
-                Найти: supabase.com → ваш проект → Settings → API. Не забудьте выполнить{" "}
-                <code className="rounded bg-paper px-1">supabase/schema.sql</code> в SQL Editor этого проекта.
-              </p>
             </div>
           )}
         </section>
