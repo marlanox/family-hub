@@ -131,6 +131,60 @@ export async function uploadPhoto(file: File, memberId: string): Promise<string 
 
 export type SyncResult = { ok: true } | { ok: false; error: string };
 
+type SupabaseLike = NonNullable<ReturnType<typeof getSupabase>>;
+
+// Supabase/PostgREST reports a column this payload set but the live
+// table doesn't have yet (because a migration hasn't been run) with a
+// message like "Could not find the 'deleted_at' column of
+// 'family_members' in the schema cache". Rather than make every push
+// hard-fail until someone can get to the SQL Editor — which, for
+// someone on just a phone, might be a while — strip that one field out
+// and retry, so sync still works with whatever columns actually exist.
+const MISSING_COLUMN_RE = /Could not find the '([^']+)' column/;
+
+async function upsertTolerant(
+  supabase: SupabaseLike,
+  table: string,
+  row: Record<string, unknown>,
+): Promise<SyncResult> {
+  const payload = { ...row };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { error } = await supabase.from(table).upsert(payload);
+    if (!error) return { ok: true };
+    const match = error.message.match(MISSING_COLUMN_RE);
+    if (match && match[1] && match[1] in payload) {
+      delete payload[match[1]];
+      continue;
+    }
+    return { ok: false, error: error.message };
+  }
+  return { ok: false, error: "В облаке не хватает нескольких столбцов — нужна миграция схемы." };
+}
+
+/** Same column-stripping tolerance as upsertTolerant, for a targeted update. Returns ok:false (not an error) if every field in `row` turned out to be an unknown column — nothing was left to write. */
+async function updateTolerant(
+  supabase: SupabaseLike,
+  table: string,
+  id: string,
+  row: Record<string, unknown>,
+): Promise<SyncResult> {
+  const payload = { ...row };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (Object.keys(payload).length === 0) {
+      return { ok: false, error: "В облаке не хватает нужных столбцов для этого изменения." };
+    }
+    const { error } = await supabase.from(table).update(payload).eq("id", id);
+    if (!error) return { ok: true };
+    const match = error.message.match(MISSING_COLUMN_RE);
+    if (match && match[1] && match[1] in payload) {
+      delete payload[match[1]];
+      continue;
+    }
+    return { ok: false, error: error.message };
+  }
+  return { ok: false, error: "В облаке не хватает нескольких столбцов — нужна миграция схемы." };
+}
+
 export async function createRemoteFamily(id: string, name: string): Promise<SyncResult> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
@@ -166,13 +220,7 @@ export async function pushMember(member: FamilyMember, familyId: string): Promis
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
-    // upsert() resolves with { error } rather than throwing on a DB-level
-    // failure (e.g. a column this payload sets doesn't exist yet) — a
-    // bare try/catch around it never saw those, so a broken push looked
-    // identical to a successful one from here.
-    const { error } = await supabase.from("family_members").upsert(memberToRow(member, familyId));
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
+    return await upsertTolerant(supabase, "family_members", memberToRow(member, familyId));
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
@@ -182,9 +230,7 @@ export async function pushTask(task: Task, familyId: string): Promise<SyncResult
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
-    const { error } = await supabase.from("tasks").upsert(taskToRow(task, familyId));
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
+    return await upsertTolerant(supabase, "tasks", taskToRow(task, familyId));
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
@@ -200,7 +246,13 @@ export async function deleteRemoteTask(taskId: string): Promise<SyncResult> {
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   const now = new Date().toISOString();
   try {
-    const { error } = await supabase.from("tasks").update({ deleted_at: now, updated_at: now }).eq("id", taskId);
+    const softDelete = await updateTolerant(supabase, "tasks", taskId, { deleted_at: now, updated_at: now });
+    if (softDelete.ok) return softDelete;
+    // Couldn't write a tombstone at all (deleted_at doesn't exist in
+    // this database yet) — a hard delete at least does something now,
+    // even though a device that already cached this row won't learn it
+    // was removed until the column exists for real.
+    const { error } = await supabase.from("tasks").delete().eq("id", taskId);
     if (error) return { ok: false, error: error.message };
     return { ok: true };
   } catch (e) {
@@ -213,10 +265,12 @@ export async function deleteRemoteMember(memberId: string): Promise<SyncResult> 
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   const now = new Date().toISOString();
   try {
-    const { error } = await supabase
-      .from("family_members")
-      .update({ deleted_at: now, updated_at: now })
-      .eq("id", memberId);
+    const softDelete = await updateTolerant(supabase, "family_members", memberId, {
+      deleted_at: now,
+      updated_at: now,
+    });
+    if (softDelete.ok) return softDelete;
+    const { error } = await supabase.from("family_members").delete().eq("id", memberId);
     if (error) return { ok: false, error: error.message };
     return { ok: true };
   } catch (e) {
