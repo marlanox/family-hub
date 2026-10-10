@@ -7,6 +7,7 @@ import { relativeTime } from "@/lib/time";
 import type { ActivityEventType, IconKey } from "@/lib/types";
 
 const ICONS: Record<ActivityEventType, IconKey> = {
+  task_assigned: "plus",
   task_completed: "checklist",
   task_refused: "close",
   task_postponed: "clock",
@@ -18,6 +19,7 @@ const ICONS: Record<ActivityEventType, IconKey> = {
 };
 
 const TONES: Record<ActivityEventType, string> = {
+  task_assigned: "bg-lilac-soft",
   task_completed: "bg-mint",
   task_refused: "bg-pink-soft",
   task_postponed: "bg-sky-soft",

@@ -625,18 +625,26 @@ export const useFamilyStore = create<FamilyHubState>()(
         const task: Task = { id, familyId: FAMILY_ID, createdAt: now, updatedAt: now, ...input };
         set((state) => ({ tasks: [task, ...state.tasks] }));
         playSound("created", get().soundEnabled, get().soundTheme);
+
         const state = get();
+        const creator = state.members.find((m) => m.id === input.creatorId);
+        const assignees = assigneeMembers(input.assignee, state.members);
+        const assigneeLabel =
+          input.assignee.kind === "family" ? "всем" : assignees.map((m) => m.displayName).join(", ") || "кому-то";
+        const message = `${creator?.displayName ?? "Кто-то"} назначил(а) новую задачу «${task.title}»: ${assigneeLabel}`;
+
+        // Logged locally (and synced below) even without a push
+        // notification arriving — so "a task got assigned to me" is
+        // always visible in Activity, not only as a fragile push.
+        get().logActivity({ type: "task_assigned", memberId: input.creatorId, taskId: task.id, message });
+
         const code = state.familyCode;
         if (code) {
           void pushTask(task, code);
-          // Whoever the task is assigned to should hear about it, not
-          // just find it next time they open the app — same as
-          // completing/refusing already notify the rest of the family.
-          const creator = state.members.find((m) => m.id === input.creatorId);
-          const assignees = assigneeMembers(input.assignee, state.members);
-          const assigneeLabel =
-            input.assignee.kind === "family" ? "всем" : assignees.map((m) => m.displayName).join(", ") || "кому-то";
-          const message = `${creator?.displayName ?? "Кто-то"} назначил(а) новую задачу «${task.title}»: ${assigneeLabel}`;
+          void pushActivity(
+            { id: "", familyId: code, type: "task_assigned", memberId: input.creatorId, taskId: task.id, message, createdAt: now },
+            code,
+          );
           void notifyFamily(code, creator ? [creator.id] : [], "Family Hub", message);
         }
         return id;

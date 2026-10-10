@@ -198,6 +198,7 @@ export interface Reward {
 }
 
 export type ActivityEventType =
+  | "task_assigned"
   | "task_completed"
   | "task_refused"
   | "task_postponed"
