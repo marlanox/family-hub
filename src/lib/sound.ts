@@ -1,15 +1,15 @@
 // Tiny synthesized sound effects — no audio files to fetch or license,
 // works fully offline. Only ever fired from a user-gesture handler
-// (tapping "Сделано", claiming a reward, …), so browsers allow it, and
-// only ever positive/celebratory sounds — see docs/ARCHITECTURE.md
-// "Sound" for why refusals stay silent.
+// (tapping "Сделано", claiming a reward, …), so browsers allow it.
 //
 // Several selectable "themes" (Settings → Звук) reuse the same event
 // shapes (complete/badge/reward/…) with a different waveform + note
 // palette each, so switching themes changes every celebratory sound in
-// the app at once.
+// the app at once. "alarm" is the one deliberately unpleasant exception,
+// played when someone's about to refuse a task — themes still vary its
+// pitch so it isn't identical everywhere, but it's dissonant on purpose.
 
-export type SoundName = "complete" | "badge" | "reward" | "tap" | "created" | "preview";
+export type SoundName = "complete" | "badge" | "reward" | "tap" | "created" | "preview" | "alarm";
 export type SoundTheme = "xylophone" | "chiptune" | "bells" | "drums" | "space";
 
 export const SOUND_THEMES: { id: SoundTheme; label: string; emoji: string }[] = [
@@ -93,6 +93,16 @@ function buildRecipes(cfg: ThemeConfig): Record<SoundName, (audioCtx: AudioConte
       const now = audioCtx.currentTime;
       cfg.scale.forEach((f, i) => tone(audioCtx, f, now + i * 0.09, 0.3, { type: cfg.type, gain: cfg.gain * 0.75 }));
       tone(audioCtx, n5 * 1.2, now + 0.55, 0.5, { type: "sine", gain: cfg.gain * 0.85 });
+    },
+    // A clashing minor-second dyad, low and buzzy, repeated twice — meant
+    // to feel like a warning, not a celebration.
+    alarm: (audioCtx) => {
+      const now = audioCtx.currentTime;
+      const low = n1 * 0.45;
+      [0, 0.32].forEach((offset) => {
+        tone(audioCtx, low, now + offset, 0.26, { type: "sawtooth", gain: cfg.gain * 1.1 });
+        tone(audioCtx, low * 1.06, now + offset, 0.26, { type: "sawtooth", gain: cfg.gain * 0.9 });
+      });
     },
   };
 }

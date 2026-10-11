@@ -332,6 +332,11 @@ export default function NewTaskPage() {
               +
             </button>
           </div>
+          {points <= 10 && (
+            <p className="mt-2 text-sm font-bold text-pink">
+              Скажи, неужели ты хочешь обделить своего родственника?! Гони больше баллов!
+            </p>
+          )}
         </Field>
 
         <label className="flex items-center gap-2 rounded-xl border-3 border-ink bg-white px-3 py-2.5 shadow-pop-sm">

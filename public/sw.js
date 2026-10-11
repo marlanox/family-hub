@@ -8,7 +8,7 @@
 //      what actually sends these (send-push for "something just
 //      happened", send-reminders for "a task is due now").
 
-const CACHE_NAME = "family-hub-shell-v2";
+const CACHE_NAME = "family-hub-shell-v3";
 // Derived from where this worker was actually registered, so the same
 // file works whether the app is served from "/" or a subpath like
 // "/family-hub/" (GitHub Pages project sites).
@@ -55,13 +55,26 @@ self.addEventListener("push", (event) => {
     payload = { title: "Family Hub", body: event.data.text() };
   }
 
+  const url = payload.data?.url;
+  // A "do this now" reminder (not a plain FYI broadcast) with the app
+  // already open and in front — jump straight to the big popup instead
+  // of showing a banner that just shows up and vanishes like a text.
+  const isActionable = typeof url === "string" && url.includes("/tasks/remind");
+
   event.waitUntil(
-    self.registration.showNotification(payload.title ?? "Family Hub", {
-      body: payload.body,
-      icon: `${BASE}icons/icon-192.png`,
-      badge: `${BASE}icons/icon-192.png`,
-      data: payload.data ?? {},
-      actions: payload.actions ?? [],
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const visible = isActionable ? clients.find((c) => c.visibilityState === "visible") : null;
+      if (visible) {
+        visible.postMessage({ type: "navigate", url });
+        return visible.focus();
+      }
+      return self.registration.showNotification(payload.title ?? "Family Hub", {
+        body: payload.body,
+        icon: `${BASE}icons/icon-192.png`,
+        badge: `${BASE}icons/icon-192.png`,
+        data: payload.data ?? {},
+        actions: payload.actions ?? [],
+      });
     }),
   );
 });

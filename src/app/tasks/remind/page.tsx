@@ -3,9 +3,10 @@
 import { ComicButton } from "@/components/ComicButton";
 import { Icon } from "@/components/Icon";
 import { GrumpyDogArt } from "@/components/PetArt";
+import { playSound } from "@/lib/sound";
 import { useFamilyStore } from "@/lib/store";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 const REASONS = [
   "Не успеваю",
@@ -29,11 +30,19 @@ function TaskReminderContent() {
   const router = useRouter();
   const task = useFamilyStore((s) => s.tasks.find((t) => t.id === id));
   const members = useFamilyStore((s) => s.members);
+  const whoAmI = useFamilyStore((s) => s.whoAmI);
+  const soundEnabled = useFamilyStore((s) => s.soundEnabled);
+  const soundTheme = useFamilyStore((s) => s.soundTheme);
   const completeTask = useFamilyStore((s) => s.completeTask);
   const refuseTask = useFamilyStore((s) => s.refuseTask);
   const snoozeTask = useFamilyStore((s) => s.snoozeTask);
   const [confirmingRefuse, setConfirmingRefuse] = useState(false);
   const [reason, setReason] = useState<string>("Без причины");
+  const [customReason, setCustomReason] = useState("");
+
+  useEffect(() => {
+    if (confirmingRefuse) playSound("alarm", soundEnabled, soundTheme);
+  }, [confirmingRefuse, soundEnabled, soundTheme]);
 
   if (!task) {
     return (
@@ -50,6 +59,24 @@ function TaskReminderContent() {
           .map((mid) => members.find((m) => m.id === mid)?.displayName ?? mid)
           .join(", ");
 
+  // Only the person(s) this task is actually assigned to can act on it —
+  // someone just looking at it (or whose own device happens to be open)
+  // shouldn't be able to answer for someone else.
+  const canAct = task.assignee.kind === "family" || task.assignee.memberIds.includes(whoAmI ?? "");
+
+  if (!canAct) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center bg-ink px-6 py-10 text-center text-white">
+        <Icon name={task.icon} className="h-16 w-16 text-white/40" />
+        <h1 className="mt-4 font-display text-2xl uppercase leading-tight">{task.title}</h1>
+        <p className="mt-2 font-semibold text-white/60">Эта задача не твоя — ждём, пока ответит {names}.</p>
+        <ComicButton variant="outline" className="mt-8" onClick={() => router.push("/")}>
+          На главную
+        </ComicButton>
+      </main>
+    );
+  }
+
   if (confirmingRefuse) {
     return (
       <main className="flex flex-1 flex-col bg-ink px-5 pb-8 pt-6 text-white">
@@ -63,9 +90,9 @@ function TaskReminderContent() {
         <p className="text-center font-display text-xl uppercase leading-tight">
           Ты точно не будешь делать?
         </p>
-        <div className="mt-4 flex items-center justify-center gap-3">
-          <GrumpyDogArt className="h-24 w-24 shrink-0 -rotate-3" />
-          <span className="rounded-2xl border-3 border-white bg-white px-3 py-1.5 font-display text-xs text-ink shadow-pop-sm rotate-2">
+        <div className="mt-2 flex flex-col items-center">
+          <GrumpyDogArt className="h-44 w-44 shrink-0" />
+          <span className="-mt-2 rounded-2xl border-3 border-white bg-white px-3 py-1.5 font-display text-xs text-ink shadow-pop-sm rotate-2">
             Серьёзно?! Опять?!
           </span>
         </div>
@@ -90,6 +117,16 @@ function TaskReminderContent() {
               {r}
             </button>
           ))}
+          {reason === "Другое" && (
+            <input
+              autoFocus
+              value={customReason}
+              onChange={(e) => setCustomReason(e.target.value)}
+              placeholder="Своими словами..."
+              maxLength={120}
+              className="w-full rounded-2xl border-3 border-white/40 bg-white/5 px-4 py-3 font-semibold text-white outline-none placeholder:text-white/40"
+            />
+          )}
         </div>
 
         <div className="mt-auto space-y-3 pt-8">
@@ -98,7 +135,13 @@ function TaskReminderContent() {
             size="lg"
             className="w-full"
             onClick={() => {
-              refuseTask(task.id, reason === "Без причины" ? undefined : reason);
+              const finalReason =
+                reason === "Без причины"
+                  ? undefined
+                  : reason === "Другое"
+                    ? customReason.trim() || "Другое"
+                    : reason;
+              refuseTask(task.id, finalReason);
               router.push("/");
             }}
           >

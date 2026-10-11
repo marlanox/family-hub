@@ -89,45 +89,78 @@ export function DogArt({ className }: PetArtProps) {
   );
 }
 
-/** Same tough dog, mid-rant — shades off, full snarl, furious brow. */
+/**
+ * Full-rage mode for the refusal screen — a different, much bigger
+ * animal from the smug purple dog: dark blood-red, hackles up, jaw wide
+ * open with a full set of teeth, bloodshot eyes. Meant to read as a
+ * genuine "oh no" moment, not a cute mascot.
+ */
 export function GrumpyDogArt({ className }: PetArtProps) {
-  const { gradId, shadowId, defs } = useToyShading("grdog", "#6B3FA0", "#B79CFF");
+  const { gradId, shadowId, defs } = useToyShading("grdog", "#6E0B0B", "#D4342C");
   return (
-    <svg viewBox="0 0 100 110" className={className} aria-hidden="true">
+    <svg viewBox="0 0 120 130" className={className} aria-hidden="true">
       {defs}
       <g filter={`url(#${shadowId})`}>
-        <path d="M26 28 14 8l18 10Z" fill={`url(#${gradId})`} stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
-        <path d="M74 28 86 8 68 18Z" fill={`url(#${gradId})`} stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
+        {/* hackles — jagged fur standing up behind the head */}
         <path
-          d="M50 18c17 0 28 12 28 27 0 11-6 18-9 22H31c-3-4-9-11-9-22 0-15 11-27 28-27Z"
+          d="M30 30 22 10l10 9 4-16 7 15 6-18 7 17 7-14 3 17 9-11-3 18"
           fill={`url(#${gradId})`}
-          stroke="#151313"
+          stroke="#120404"
+          strokeWidth="3"
+          strokeLinejoin="round"
+        />
+        {/* big pinned-back ears */}
+        <path d="M24 38 6 16l22 8Z" fill={`url(#${gradId})`} stroke="#120404" strokeWidth="3.5" strokeLinejoin="round" />
+        <path d="M96 38 114 16 92 24Z" fill={`url(#${gradId})`} stroke="#120404" strokeWidth="3.5" strokeLinejoin="round" />
+        {/* big blocky enraged head */}
+        <path
+          d="M60 22c21 0 34 14 34 32 0 13-7 21-11 26H37c-4-5-11-13-11-26 0-18 13-32 34-32Z"
+          fill={`url(#${gradId})`}
+          stroke="#120404"
+          strokeWidth="4"
+          strokeLinejoin="round"
+        />
+        {/* heavy furious brow, pressed down hard */}
+        <path
+          d="M32 46c8 6 14 6 20 11M88 46c-8 6-14 6-20 11"
+          stroke="#120404"
+          strokeWidth="5"
+          fill="none"
+          strokeLinecap="round"
+        />
+        {/* bloodshot bulging eyes */}
+        <circle cx="42" cy="58" r="7" fill="#FFE2D8" stroke="#120404" strokeWidth="2.6" />
+        <circle cx="43" cy="59" r="3.4" fill="#120404" />
+        <path d="M36 56l3 2M38 53l2 3" stroke="#D4342C" strokeWidth="1" opacity="0.8" />
+        <circle cx="78" cy="58" r="7" fill="#FFE2D8" stroke="#120404" strokeWidth="2.6" />
+        <circle cx="77" cy="59" r="3.4" fill="#120404" />
+        <path d="M84 56l-3 2M82 53l-2 3" stroke="#D4342C" strokeWidth="1" opacity="0.8" />
+        {/* jaw dropped wide open, full set of bared teeth top and bottom, red interior */}
+        <path
+          d="M38 72c2 14 10 22 22 22s20-8 22-22c-8 5-15 7-22 7s-14-2-22-7Z"
+          fill="#4A0404"
+          stroke="#120404"
           strokeWidth="3.5"
           strokeLinejoin="round"
         />
-        {/* furious brow */}
-        <path d="M30 40c6 4 10 4 15 8M70 40c-6 4-10 4-15 8" stroke="#151313" strokeWidth="3.6" fill="none" strokeLinecap="round" />
-        {/* narrowed angry eyes */}
-        <path d="M33 50c3-2 7-2 9 0" stroke="#151313" strokeWidth="3.4" fill="none" strokeLinecap="round" />
-        <path d="M58 50c3-2 7-2 9 0" stroke="#151313" strokeWidth="3.4" fill="none" strokeLinecap="round" />
-        {/* full snarl, teeth bared */}
-        <path d="M38 62c5 6 19 6 24 0" stroke="#151313" strokeWidth="3" fill="#fff" strokeLinecap="round" />
-        <path d="M43 63l6 5 6-5Z" fill="#fff" stroke="#151313" strokeWidth="1.4" strokeLinejoin="round" />
-        <path d="M36 65h28v8H36Z" fill={`url(#${gradId})`} stroke="#151313" strokeWidth="3" />
-        <path d="M34 71h32v6H34Z" fill="#151313" />
-        <circle cx="40" cy="74" r="2" fill="#DCCFFF" />
-        <circle cx="50" cy="74" r="2" fill="#DCCFFF" />
-        <circle cx="60" cy="74" r="2" fill="#DCCFFF" />
+        <path d="M40 74l4 6 4-6 4 6 4-6 4 6 4-6 4 6 4-6 4 6 4-6" stroke="#fff" strokeWidth="2.6" fill="none" strokeLinecap="round" />
+        <path d="M42 92l4-6 4 6 4-6 4 6 4-6 4 6 4-6 4 6" stroke="#fff" strokeWidth="2.6" fill="none" strokeLinecap="round" />
+        {/* thick furious neck */}
+        <path d="M40 92h40v11H40Z" fill={`url(#${gradId})`} stroke="#120404" strokeWidth="3.5" />
+        {/* huge hunched shoulders, leaning forward */}
         <path
-          d="M24 108c-1-16 10-24 26-24s27 8 26 24Z"
+          d="M18 128c0-20 14-30 42-30s42 10 42 30Z"
           fill={`url(#${gradId})`}
-          stroke="#151313"
-          strokeWidth="3.5"
+          stroke="#120404"
+          strokeWidth="4"
           strokeLinejoin="round"
         />
-        <path d="M30 92c8 6 16 6 24 0M70 92c-8 6-16 6-24 0" stroke="#151313" strokeWidth="4" fill="none" strokeLinecap="round" />
-        {/* fury lines */}
-        <path d="M16 16l5 5M84 16l-5 5M50 4v7" stroke="#151313" strokeWidth="2.6" strokeLinecap="round" opacity="0.6" />
+        {/* clenched fists instead of crossed arms — ready to go */}
+        <circle cx="26" cy="116" r="9" fill={`url(#${gradId})`} stroke="#120404" strokeWidth="3" />
+        <circle cx="94" cy="116" r="9" fill={`url(#${gradId})`} stroke="#120404" strokeWidth="3" />
+        {/* fury lines + a drop of spit for good measure */}
+        <path d="M4 24l7 7M116 24l-7 7M60 4v10" stroke="#120404" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
+        <path d="M58 94q-2 6 0 10" stroke="#9FE3FF" strokeWidth="2.4" strokeLinecap="round" opacity="0.8" />
       </g>
     </svg>
   );

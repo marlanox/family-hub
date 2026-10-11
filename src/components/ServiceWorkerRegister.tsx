@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 /**
@@ -11,8 +12,21 @@ import { useEffect } from "react";
  * See docs/ARCHITECTURE.md "Updates" for the full reasoning.
  */
 export function ServiceWorkerRegister() {
+  const router = useRouter();
+
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
+
+    // A due-task push that arrived while the app was already open and in
+    // front — the service worker skips the OS banner for these and asks
+    // us to jump straight to the reminder screen instead (see sw.js).
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "navigate" && typeof event.data.url === "string") {
+        router.push(event.data.url);
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+
     const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
     let reloaded = false;
@@ -41,7 +55,9 @@ export function ServiceWorkerRegister() {
       .catch(() => {
         // Offline shell is a nice-to-have; the app still works without it.
       });
-  }, []);
+
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [router]);
 
   return null;
 }
