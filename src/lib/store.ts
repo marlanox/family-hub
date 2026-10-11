@@ -717,7 +717,11 @@ export const useFamilyStore = create<FamilyHubState>()(
             { id: "", familyId: code, type: "task_assigned", memberId: input.creatorId, taskId: task.id, message, createdAt: now },
             code,
           );
-          void notifyFamily(code, creator ? [creator.id] : [], "Новая задача", message, `/tasks/remind?id=${task.id}`).then((r) => {
+          // Unlike completing/refusing/postponing, the creator gets this
+          // one too — they explicitly asked to see "new task" land on
+          // their own phone as well, including a task assigned to
+          // themselves or to the whole family.
+          void notifyFamily(code, [], "Новая задача", message, `/tasks/remind?id=${task.id}`).then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
         }

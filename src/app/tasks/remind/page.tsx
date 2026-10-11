@@ -58,6 +58,7 @@ function TaskReminderContent() {
       : task.assignee.memberIds
           .map((mid) => members.find((m) => m.id === mid)?.displayName ?? mid)
           .join(", ");
+  const creatorName = members.find((m) => m.id === task.creatorId)?.displayName;
 
   // Only the person(s) this task is actually assigned to can act on it —
   // someone just looking at it (or whose own device happens to be open)
@@ -175,6 +176,7 @@ function TaskReminderContent() {
       <p className="mt-6 text-sm font-bold uppercase tracking-widest text-white/50">Пора делать задачу!</p>
       <h1 className="mt-2 font-display text-4xl uppercase leading-tight">{task.title}</h1>
       <p className="mt-2 font-semibold text-white/70">{names}, пора это сделать!</p>
+      {creatorName && <p className="mt-1 text-xs font-semibold text-white/40">Назначил(а): {creatorName}</p>}
       <span className="mt-4 rounded-full border-3 border-ink bg-mint px-4 py-1.5 font-display text-ink shadow-pop-sm">
         +{task.points} баллов
       </span>
