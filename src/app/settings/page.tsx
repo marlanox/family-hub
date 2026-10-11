@@ -36,6 +36,8 @@ export default function SettingsPage() {
   const lastSyncError = useFamilyStore((s) => s.lastSyncError);
   const clearSyncError = useFamilyStore((s) => s.clearSyncError);
   const setCustomSupabaseConfig = useFamilyStore((s) => s.setCustomSupabaseConfig);
+  const customSupabaseUrl = useFamilyStore((s) => s.customSupabaseUrl);
+  const customSupabaseKey = useFamilyStore((s) => s.customSupabaseKey);
   const me = members.find((m) => m.id === whoAmI);
 
   const [name, setName] = useState("");
@@ -288,7 +290,19 @@ export default function SettingsPage() {
             )}
           </p>
           {!ownProjectOpen ? (
-            <ComicButton variant="outline" className="w-full" onClick={() => setOwnProjectOpen(true)}>
+            <ComicButton
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                // Without this, reopening the form to just double-check or
+                // tweak one value showed two blank fields — there was
+                // nowhere else in the app to see the key you'd already
+                // saved, short of going back to Supabase's own dashboard.
+                setOwnUrl(customSupabaseUrl ?? "");
+                setOwnKey(customSupabaseKey ?? "");
+                setOwnProjectOpen(true);
+              }}
+            >
               {usingCustomSupabase() ? "Изменить облако" : "Подключить облако семьи"}
             </ComicButton>
           ) : (
