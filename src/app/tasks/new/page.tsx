@@ -55,6 +55,18 @@ export default function NewTaskPage() {
   const [reminderEnabled, setReminderEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // A standing house rule: Наташа isn't allowed to lowball Машу on
+  // points — 50 is the floor whenever she's the one creating the task
+  // and Маша is among who it goes to (including a whole-family task).
+  // Derived rather than clamped into state, so it can't be silently
+  // undone by something else resetting `points` afterwards (a template
+  // pick, "Своя задача", the difficulty selector, …).
+  const creatorName = members.find((m) => m.id === whoAmI)?.displayName.trim().toLowerCase();
+  const targetsMasha =
+    assignFamily || assigneeIds.some((id) => members.find((m) => m.id === id)?.displayName.trim().toLowerCase() === "маша");
+  const minPoints = creatorName === "наташа" && targetsMasha ? 50 : 5;
+  const effectivePoints = Math.max(minPoints, points);
+
   function applyTemplate(t: TaskTemplate) {
     setTitle(t.title);
     setIcon(t.icon);
@@ -102,7 +114,7 @@ export default function NewTaskPage() {
       category: "custom",
       icon,
       color,
-      points,
+      points: effectivePoints,
       difficulty,
       assignee: assignFamily ? { kind: "family" } : { kind: "member", memberIds: assigneeIds },
       // Who actually created the task, not who it's assigned to — those
@@ -318,21 +330,26 @@ export default function NewTaskPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setPoints((p) => Math.max(5, p - 5))}
+              onClick={() => setPoints((p) => Math.max(minPoints, p - 5))}
               className="flex h-10 w-10 items-center justify-center rounded-full border-3 border-ink bg-white font-display text-lg shadow-pop-sm"
             >
               −
             </button>
-            <span className="w-16 text-center font-display text-2xl">{points}</span>
+            <span className="w-16 text-center font-display text-2xl">{effectivePoints}</span>
             <button
               type="button"
-              onClick={() => setPoints((p) => p + 5)}
+              onClick={() => setPoints(effectivePoints + 5)}
               className="flex h-10 w-10 items-center justify-center rounded-full border-3 border-ink bg-white font-display text-lg shadow-pop-sm"
             >
               +
             </button>
           </div>
-          {points <= 10 && (
+          {minPoints === 50 && (
+            <p className="mt-2 text-xs font-bold text-ink/50">
+              Для Маши у тебя минимум 50 баллов — правило семьи 😏
+            </p>
+          )}
+          {effectivePoints <= 10 && (
             <p className="mt-2 text-sm font-bold text-pink">
               Скажи, неужели ты хочешь обделить своего родственника?! Гони больше баллов, абьюзер!!!!!
             </p>

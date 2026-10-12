@@ -7,11 +7,12 @@
 // Cron job that calls it).
 //
 // Each run: for every family, works out "now" in that family's own
-// timezone, finds tasks due around now that haven't been dealt with yet
-// today, sends a push for each (deep-linking straight to the
-// snooze/refuse screen), and records that a reminder went out so the
-// next run a few minutes later doesn't repeat it — except for a snoozed
-// task, which is supposed to ping again once its snooze runs out.
+// timezone, finds tasks due that haven't been dealt with yet today, and
+// sends a push for each (deep-linking straight to the snooze/refuse
+// screen) — deliberately on every sweep, not just once, like a real
+// alarm clock: it keeps nagging every few minutes until the task is
+// completed/refused, or until an active snooze's time hasn't run out
+// yet (that pauses it; once the snooze expires, nagging resumes).
 //
 // Deploy: paste this file's contents into Supabase Dashboard → Edge
 // Functions → "send-reminders" → the code editor, then Deploy. It reuses
@@ -161,13 +162,16 @@ Deno.serve(async (req: Request) => {
 
       for (const task of dueTasks) {
         const occ = occByTask.get(task.id);
-        // No row yet today → never reminded, first ping. A snoozed row
-        // whose snooze has run out → ping again, that's the whole point
-        // of snoozing. Anything else (already pending-and-reminded,
-        // completed, refused, cancelled) is left alone.
-        const snoozeElapsed =
-          occ?.status === "snoozed" && occ.snoozed_until != null && new Date(occ.snoozed_until).getTime() <= Date.now();
-        if (occ && !snoozeElapsed) continue;
+        // Deliberately an alarm clock, not a one-time ping: it keeps
+        // nagging every sweep (every few minutes) until the task is
+        // actually dealt with, so it's unmistakably different from a
+        // plain "you got a new task" notification. Only two things make
+        // it stop: completed/refused (done), or an active snooze whose
+        // time hasn't run out yet — once that runs out, it resumes.
+        const isDone = occ?.status === "completed" || occ?.status === "refused" || occ?.status === "cancelled";
+        const stillSnoozing =
+          occ?.status === "snoozed" && occ.snoozed_until != null && new Date(occ.snoozed_until).getTime() > Date.now();
+        if (isDone || stillSnoozing) continue;
 
         const targetIds = task.assignee?.kind === "family" ? allMemberIds : task.assignee?.memberIds ?? [];
         if (targetIds.length === 0) continue;
