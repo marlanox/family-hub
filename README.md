@@ -145,6 +145,22 @@ Supabase Edge Function, которая реально рассылает уве�
 отказаться или перенести на 15 минут/час/3 часа; если перенести — ровно
 через это время придёт новый пуш.
 
+### Автодеплой облачных функций (чтобы больше не заходить в Supabase руками)
+
+Без этой настройки каждое обновление кода `send-push`/`send-reminders`
+нужно вручную копировать в Supabase Dashboard → Edge Functions. С ней —
+при каждом пуше в `main` код сам уезжает в облако
+(`.github/workflows/deploy-functions.yml`). Разовая настройка:
+
+1. На **supabase.com/dashboard/account/tokens** → **Generate new token** →
+   скопировать получившийся токен (длинная строка, покажется только
+   один раз).
+2. В репозитории на GitHub: **Settings → Secrets and variables → Actions
+   → New repository secret** → имя `SUPABASE_ACCESS_TOKEN`, значение —
+   токен из шага 1 → Add secret.
+
+Всё — дальше изменения в папке `supabase/functions/` деплоятся сами.
+
 ## Скрипты
 
 - `npm run dev` — режим разработки

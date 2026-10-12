@@ -1,0 +1,34 @@
+name: Deploy Supabase Edge Functions
+
+# Pushes the code in supabase/functions/ straight to Supabase whenever it
+# changes on main — the one-time setup is adding the SUPABASE_ACCESS_TOKEN
+# repo secret (see README.md "Автодеплой облачных функций"); after that,
+# no one needs to paste function code into the Supabase dashboard by hand
+# again.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy send-push (JWT verification stays on — called by the app itself)
+        run: supabase functions deploy send-push --project-ref ipatbnpxijrjdsutxfym
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Deploy send-reminders (JWT verification off — called by Cron, not the app)
+        run: supabase functions deploy send-reminders --project-ref ipatbnpxijrjdsutxfym --no-verify-jwt
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
