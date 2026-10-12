@@ -721,7 +721,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           // one too — they explicitly asked to see "new task" land on
           // their own phone as well, including a task assigned to
           // themselves or to the whole family.
-          void notifyFamily(code, [], "Новая задача", message, `/tasks/remind?id=${task.id}`).then((r) => {
+          void notifyFamily(code, [], "Новая задача", message, `/tasks/remind?id=${task.id}&reason=assigned`).then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
         }

@@ -26,7 +26,9 @@ export default function TaskReminderPage() {
 }
 
 function TaskReminderContent() {
-  const id = useSearchParams().get("id") ?? "";
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id") ?? "";
+  const isFreshlyAssigned = searchParams.get("reason") === "assigned";
   const router = useRouter();
   const task = useFamilyStore((s) => s.tasks.find((t) => t.id === id));
   const members = useFamilyStore((s) => s.members);
@@ -154,6 +156,59 @@ function TaskReminderContent() {
             Уведомление получат остальные члены семьи.
           </p>
           <p className="text-center text-xs font-bold text-white/70">Всё ок, главное — честность 💛</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Two very different looks on purpose: a dark, urgent "do it right now"
+  // screen for an actual due-time reminder, versus a calm, light "heads
+  // up, this landed on your list" screen for a fresh assignment that
+  // isn't due yet — same actions underneath, but they used to be the
+  // exact same screen and that made it impossible to tell at a glance
+  // which situation you were in.
+  if (isFreshlyAssigned) {
+    return (
+      <main className="flex flex-1 flex-col items-center bg-paper px-6 pb-10 pt-6 text-center">
+        <button
+          onClick={() => router.back()}
+          aria-label="Назад"
+          className="mb-4 mr-auto flex h-10 w-10 items-center justify-center rounded-full border-3 border-ink bg-white text-ink"
+        >
+          <Icon name="back" className="h-5 w-5" />
+        </button>
+        <span className="rounded-full border-3 border-ink bg-sky px-4 py-1 font-display text-xs uppercase text-ink shadow-pop-sm">
+          🆕 Новая задача для тебя
+        </span>
+        <div className="halftone-dots relative mt-6 flex h-48 w-48 items-center justify-center rounded-full border-3 border-ink bg-mint/50">
+          <Icon name={task.icon} className="relative z-10 h-24 w-24 text-ink" />
+        </div>
+
+        <h1 className="mt-6 font-display text-3xl uppercase leading-tight text-ink">{task.title}</h1>
+        <p className="mt-2 font-semibold text-ink/70">Тебе назначили — когда время подойдёт, напомним ещё раз.</p>
+        {creatorName && <p className="mt-1 text-xs font-semibold text-ink/40">Назначил(а): {creatorName}</p>}
+        <span className="mt-4 rounded-full border-3 border-ink bg-yellow px-4 py-1.5 font-display text-ink shadow-pop-sm">
+          +{task.points} баллов
+        </span>
+
+        <div className="mt-10 w-full space-y-3">
+          <ComicButton variant="mint" size="lg" className="w-full" onClick={() => router.push("/")}>
+            Хорошо, увидел(а)!
+          </ComicButton>
+          <ComicButton
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={() => {
+              completeTask(task.id);
+              router.push("/");
+            }}
+          >
+            ✓ Уже сделано
+          </ComicButton>
+          <ComicButton variant="pink" size="lg" className="w-full" onClick={() => setConfirmingRefuse(true)}>
+            ✕ Не буду делать
+          </ComicButton>
         </div>
       </main>
     );
