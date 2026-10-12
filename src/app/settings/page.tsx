@@ -134,7 +134,7 @@ export default function SettingsPage() {
               onClick={async () => {
                 setTestingPush(true);
                 setTestPushStatus(null);
-                const result = await notifyFamily(familyCode, [], "Проверка связи 🔔", "Тестовое уведомление дошло!");
+                const result = await notifyFamily(familyCode, [], "🔔 Проверка связи", "Тестовое уведомление дошло!");
                 setTestingPush(false);
                 setTestPushStatus(
                   result.ok

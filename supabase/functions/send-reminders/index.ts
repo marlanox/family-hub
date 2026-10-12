@@ -178,7 +178,7 @@ Deno.serve(async (req: Request) => {
             await webpush.sendNotification(
               { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
               JSON.stringify({
-                title: `Пора делать: ${task.title}`,
+                title: `⏰ Пора делать: ${task.title}`,
                 body: task.description || "Отметь, что сделал(а), или перенеси время",
                 data: { url: `/tasks/remind?id=${task.id}` },
               }),

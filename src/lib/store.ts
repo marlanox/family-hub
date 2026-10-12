@@ -578,7 +578,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           void notifyFamily(
             state.familyCode,
             members.map((m) => m.id),
-            "Задача выполнена ✅",
+            "✅ Задача выполнена",
             completedMessage,
             "/activity",
           ).then((r) => {
@@ -628,7 +628,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             },
             state.familyCode,
           );
-          void notifyFamily(state.familyCode, members.map((m) => m.id), "Задача не будет сделана", refusedMessage, "/activity").then((r) => {
+          void notifyFamily(state.familyCode, members.map((m) => m.id), "❌ Задача не будет сделана", refusedMessage, "/activity").then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
         }
@@ -680,7 +680,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           void notifyFamily(
             state.familyCode,
             members.map((m) => m.id),
-            "Задача перенесена",
+            "⏳ Задача перенесена",
             snoozedMessage,
             "/activity",
           ).then((r) => {
@@ -721,7 +721,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           // one too — they explicitly asked to see "new task" land on
           // their own phone as well, including a task assigned to
           // themselves or to the whole family.
-          void notifyFamily(code, [], "Новая задача", message, `/tasks/remind?id=${task.id}&reason=assigned`).then((r) => {
+          void notifyFamily(code, [], "🆕 Новая задача", message, `/tasks/remind?id=${task.id}&reason=assigned`).then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
         }
