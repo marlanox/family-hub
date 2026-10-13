@@ -544,7 +544,9 @@ export const useFamilyStore = create<FamilyHubState>()(
               createdAt: now,
             },
             state.familyCode,
-          );
+          ).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
         }
         for (const badge of newlyEarned) {
           const owner = state.members.find((m) => m.id === badge.memberId);
@@ -627,7 +629,9 @@ export const useFamilyStore = create<FamilyHubState>()(
               createdAt: new Date().toISOString(),
             },
             state.familyCode,
-          );
+          ).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
           void notifyFamily(state.familyCode, members.map((m) => m.id), "❌ Задача не будет сделана", refusedMessage, "/activity").then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
@@ -676,7 +680,9 @@ export const useFamilyStore = create<FamilyHubState>()(
               createdAt: new Date().toISOString(),
             },
             state.familyCode,
-          );
+          ).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
           void notifyFamily(
             state.familyCode,
             members.map((m) => m.id),
@@ -711,12 +717,24 @@ export const useFamilyStore = create<FamilyHubState>()(
         const code = state.familyCode;
         if (code) {
           void pushTask(task, code).then((r) => {
-            if (!r.ok) set({ lastSyncError: r.error });
+            if (!r.ok) {
+              set({ lastSyncError: r.error });
+              return;
+            }
+            // Only push the activity record once the task row actually
+            // exists server-side — firing both at once raced against
+            // pushTask's own insert, and family_activity.task_id's
+            // foreign key silently rejected the activity row whenever
+            // it lost that race, which is why "Наташа назначила..."
+            // could go missing on other devices despite showing fine
+            // locally for whoever created the task.
+            void pushActivity(
+              { id: "", familyId: code, type: "task_assigned", memberId: input.creatorId, taskId: task.id, message, createdAt: now },
+              code,
+            ).then((r2) => {
+              if (!r2.ok) set({ lastSyncError: r2.error });
+            });
           });
-          void pushActivity(
-            { id: "", familyId: code, type: "task_assigned", memberId: input.creatorId, taskId: task.id, message, createdAt: now },
-            code,
-          );
           // Unlike completing/refusing/postponing, the creator gets this
           // one too — they explicitly asked to see "new task" land on
           // their own phone as well, including a task assigned to
