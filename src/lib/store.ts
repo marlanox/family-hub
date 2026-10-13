@@ -109,6 +109,11 @@ interface FamilyHubState {
   soundTheme: SoundTheme;
   whoAmI: string | null;
   onboardingComplete: boolean;
+  // Whether this device has already been asked (once) to enable push
+  // notifications — set regardless of whether they said yes, so the
+  // prompt doesn't nag on every launch. People routinely never found
+  // the toggle buried in Settings, so onboarding now asks directly.
+  pushPromptSeen: boolean;
   hasHydrated: boolean;
   lastCelebration: Celebration | null;
   familyCode: string | null;
@@ -139,6 +144,7 @@ interface FamilyHubState {
   renameMember: (id: string, name: string) => void;
   setWhoAmI: (id: string | null) => void;
   finishOnboarding: () => void;
+  markPushPromptSeen: () => void;
   resetAll: () => void;
   enableSync: () => Promise<string | null>;
   joinSync: (code: string) => Promise<boolean>;
@@ -368,6 +374,7 @@ const EMPTY_STATE = {
   familyRewardHistory: [] as FamilyRewardHistoryEntry[],
   whoAmI: null as string | null,
   onboardingComplete: false,
+  pushPromptSeen: false,
   familyCode: null as string | null,
   lastSyncedAt: null as string | null,
   knownRemoteMemberIds: [] as string[],
@@ -826,6 +833,7 @@ export const useFamilyStore = create<FamilyHubState>()(
 
       setWhoAmI: (id) => set({ whoAmI: id }),
       finishOnboarding: () => set({ onboardingComplete: true }),
+      markPushPromptSeen: () => set({ pushPromptSeen: true }),
 
       resetAll: () => set({ ...EMPTY_STATE }),
 

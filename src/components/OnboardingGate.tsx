@@ -5,6 +5,7 @@ import { ComicButton } from "./ComicButton";
 import { ColorPicker } from "./ColorPicker";
 import { Sticker } from "./Sticker";
 import { useFamilyStore } from "@/lib/store";
+import { enablePushForMember, pushSupported } from "@/lib/push";
 import type { FamilyMember } from "@/lib/types";
 
 /**
@@ -22,6 +23,8 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   const whoAmI = useFamilyStore((s) => s.whoAmI);
   const onboardingComplete = useFamilyStore((s) => s.onboardingComplete);
   const finishOnboarding = useFamilyStore((s) => s.finishOnboarding);
+  const pushPromptSeen = useFamilyStore((s) => s.pushPromptSeen);
+  const markPushPromptSeen = useFamilyStore((s) => s.markPushPromptSeen);
 
   if (!hasHydrated) return null;
   // Stored in the persisted state (not local component state) so that
@@ -31,7 +34,38 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     return <CreateFamily onDone={finishOnboarding} />;
   }
   if (!whoAmI) return <PickWhoAmI />;
+  // The toggle for this lives in Settings, and in practice almost nobody
+  // found it there on their own — asking directly, once, right after
+  // picking who you are, is what actually gets people subscribed.
+  if (pushSupported && !pushPromptSeen && typeof Notification !== "undefined" && Notification.permission === "default") {
+    return <EnableNotifications whoAmI={whoAmI} onDone={markPushPromptSeen} />;
+  }
   return <>{children}</>;
+}
+
+function EnableNotifications({ whoAmI, onDone }: { whoAmI: string; onDone: () => void }) {
+  const [working, setWorking] = useState(false);
+
+  async function handleEnable() {
+    setWorking(true);
+    await enablePushForMember(whoAmI);
+    onDone();
+  }
+
+  return (
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 py-10 text-center">
+      <h1 className="font-display text-2xl uppercase leading-tight">Включить уведомления?</h1>
+      <p className="max-w-xs text-sm font-semibold text-ink/60">
+        Так ты узнаешь, когда тебе назначили задачу или пришло время её делать — даже если телефон в кармане.
+      </p>
+      <ComicButton variant="mint" size="lg" onClick={handleEnable} disabled={working}>
+        🔔 Включить уведомления
+      </ComicButton>
+      <ComicButton variant="outline" onClick={onDone}>
+        Пропустить
+      </ComicButton>
+    </main>
+  );
 }
 
 function CreateFamily({ onDone }: { onDone: () => void }) {
