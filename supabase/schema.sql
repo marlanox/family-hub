@@ -31,6 +31,7 @@
 -- Safe to (re-)run on a fresh project: drops these specific tables first.
 
 drop table if exists push_subscriptions cascade;
+drop table if exists family_guides cascade;
 drop table if exists family_activity cascade;
 drop table if exists family_reward_history cascade;
 drop table if exists user_badges cascade;
@@ -160,10 +161,24 @@ create table family_activity (
   created_at timestamptz not null default now()
 );
 
+-- Free-text "how to do this chore properly" pages, editable by anyone in
+-- the family — a shared reference (kitchen checklist, hygiene routine,
+-- …), not a tracked/checkable task with its own points or occurrences.
+create table family_guides (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references families(id) on delete cascade,
+  title text not null,
+  content text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+
 create index idx_family_members_family on family_members(family_id);
 create index idx_tasks_family on tasks(family_id);
 create index idx_task_occurrences_task on task_occurrences(task_id);
 create index idx_family_activity_family on family_activity(family_id, created_at desc);
+create index idx_family_guides_family on family_guides(family_id);
 
 -- ---------------------------------------------------------------------
 -- The atomic completion function — see header comment for why this
@@ -318,6 +333,7 @@ alter table user_badges enable row level security;
 alter table family_reward_history enable row level security;
 alter table family_activity enable row level security;
 alter table push_subscriptions enable row level security;
+alter table family_guides enable row level security;
 
 create policy "anyone with the anon key can read/write families"
   on families for all using (true) with check (true);
@@ -335,10 +351,12 @@ create policy "anyone with the anon key can read/write family_activity"
   on family_activity for all using (true) with check (true);
 create policy "anyone with the anon key can read/write push_subscriptions"
   on push_subscriptions for all using (true) with check (true);
+create policy "anyone with the anon key can read/write family_guides"
+  on family_guides for all using (true) with check (true);
 
 -- Lets the client subscribe to live changes (Database → Replication in
 -- the dashboard does the same thing; this just does it from SQL).
-alter publication supabase_realtime add table family_members, tasks, task_occurrences, family_activity, family_reward_history;
+alter publication supabase_realtime add table family_members, tasks, task_occurrences, family_activity, family_reward_history, family_guides;
 
 -- ---------------------------------------------------------------------
 -- Storage — profile photos. Public bucket: anyone with a photo's exact

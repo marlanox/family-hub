@@ -145,6 +145,35 @@ Supabase Edge Function, которая реально рассылает уве�
 отказаться или перенести на 15 минут/час/3 часа; если перенести — ровно
 через это время придёт новый пуш.
 
+### Инструкции (страница с памятками — как делать что-то правильно)
+
+Отдельная страница в приложении (значок со списком рядом с настройками
+на главном экране), где можно завести текстовую инструкцию («Чек-лист по
+кухне», «Личная гигиена», …) и поправить её в любой момент — видно и
+редактируется с любого телефона семьи, как и всё остальное. Если
+синхронизация уже настроена (разделы выше), этой странице нужна ещё одна
+таблица в базе — на уже существующем, непустом проекте выполните в
+**SQL Editor** только этот снипет (ничего не удаляет):
+
+```sql
+create table if not exists family_guides (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references families(id) on delete cascade,
+  title text not null,
+  content text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+create index if not exists idx_family_guides_family on family_guides(family_id);
+alter table family_guides enable row level security;
+create policy "anyone with the anon key can read/write family_guides"
+  on family_guides for all using (true) with check (true);
+```
+
+Без этой таблицы страница продолжает работать на одном телефоне — просто
+не синхронизируется с остальными, пока снипет не выполнен.
+
 ### Автодеплой облачных функций (чтобы больше не заходить в Supabase руками)
 
 Без этой настройки каждое обновление кода `send-push`/`send-reminders`

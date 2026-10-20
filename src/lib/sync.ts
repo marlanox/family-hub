@@ -4,6 +4,7 @@ import type {
   ActivityEvent,
   EarnedBadge,
   FamilyMember,
+  Guide,
   Task,
 } from "./types";
 
@@ -23,6 +24,7 @@ export interface RemoteSnapshot {
   activity: ActivityEvent[];
   earnedBadges: EarnedBadge[];
   familyRewardHistory: { tier: number; name: string; unlockedAt: string }[];
+  guides: Guide[];
 }
 
 function memberToRow(m: FamilyMember, familyId: string) {
@@ -107,6 +109,28 @@ function rowToTask(row: Record<string, unknown>): Task {
     reminderEnabled: row.reminder_enabled as boolean,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
+    deletedAt: (row.deleted_at as string | null) ?? null,
+  };
+}
+
+function guideToRow(g: Guide, familyId: string) {
+  return {
+    id: g.id,
+    family_id: familyId,
+    title: g.title,
+    content: g.content,
+    updated_at: g.updatedAt,
+    deleted_at: g.deletedAt ?? null,
+  };
+}
+
+function rowToGuide(row: Record<string, unknown>): Guide {
+  return {
+    id: row.id as string,
+    familyId: row.family_id as string,
+    title: row.title as string,
+    content: row.content as string,
+    updatedAt: (row.updated_at as string | null) ?? (row.created_at as string),
     deletedAt: (row.deleted_at as string | null) ?? null,
   };
 }
@@ -381,6 +405,34 @@ export async function notifyFamily(
   }
 }
 
+export async function pushGuide(guide: Guide, familyId: string): Promise<SyncResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
+  try {
+    return await upsertTolerant(supabase, "family_guides", guideToRow(guide, familyId));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function deleteRemoteGuide(guideId: string): Promise<SyncResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
+  const now = new Date().toISOString();
+  try {
+    const softDelete = await updateTolerant(supabase, "family_guides", guideId, {
+      deleted_at: now,
+      updated_at: now,
+    });
+    if (softDelete.ok) return softDelete;
+    const { error } = await supabase.from("family_guides").delete().eq("id", guideId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function pushActivity(event: ActivityEvent, familyId: string): Promise<SyncResult> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
@@ -405,9 +457,9 @@ export async function fetchSnapshot(
 ): Promise<{ ok: true; snapshot: RemoteSnapshot } | { ok: false; error: string }> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
-  let familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes;
+  let familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes, guidesRes;
   try {
-    [familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes] = await Promise.all([
+    [familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes, guidesRes] = await Promise.all([
       supabase.from("families").select("*").eq("id", familyId).maybeSingle(),
       supabase.from("family_members").select("*").eq("family_id", familyId),
       supabase.from("tasks").select("*").eq("family_id", familyId),
@@ -418,6 +470,11 @@ export async function fetchSnapshot(
       supabase.from("family_activity").select("*").eq("family_id", familyId).order("created_at", { ascending: false }).limit(200),
       supabase.from("user_badges").select("*, family_members!inner(family_id)").eq("family_members.family_id", familyId),
       supabase.from("family_reward_history").select("*").eq("family_id", familyId).order("tier", { ascending: false }),
+      // Tolerated like everything below familyRes — if `family_guides`
+      // doesn't exist yet on an older project, this just comes back with
+      // an error and `guidesRes.data` stays undefined, so guides fall
+      // back to an empty list instead of failing the whole sync pull.
+      supabase.from("family_guides").select("*").eq("family_id", familyId),
     ]);
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -466,6 +523,7 @@ export async function fetchSnapshot(
         name: row.name,
         unlockedAt: row.unlocked_at,
       })),
+      guides: (guidesRes.data ?? []).map(rowToGuide),
     },
   };
 }

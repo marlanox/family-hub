@@ -53,13 +53,22 @@ export default function HomePage() {
           tag="Вместе лучше 🙂"
           color="pink"
           action={
-            <Link
-              href="/settings"
-              aria-label="Настройки семьи"
-              className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-white shadow-pop-sm"
-            >
-              <Icon name="settings" className="h-5 w-5" />
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/guides"
+                aria-label="Инструкции"
+                className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-white shadow-pop-sm"
+              >
+                <Icon name="checklist" className="h-5 w-5" />
+              </Link>
+              <Link
+                href="/settings"
+                aria-label="Настройки семьи"
+                className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-white shadow-pop-sm"
+              >
+                <Icon name="settings" className="h-5 w-5" />
+              </Link>
+            </div>
           }
         />
       </header>

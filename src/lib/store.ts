@@ -6,12 +6,14 @@ import { isScheduledOn, occurrenceKey, todayISO } from "./schedule";
 import { playSound, type SoundTheme } from "./sound";
 import {
   createRemoteFamily,
+  deleteRemoteGuide,
   deleteRemoteMember,
   deleteRemoteTask,
   fetchSnapshot,
   notifyFamily,
   pushActivity,
   pushComplete,
+  pushGuide,
   pushMember,
   pushRefuse,
   pushSnooze,
@@ -25,6 +27,7 @@ import type {
   Difficulty,
   EarnedBadge,
   FamilyMember,
+  Guide,
   IconKey,
   OccurrenceStatus,
   Recurrence,
@@ -102,6 +105,7 @@ interface FamilyHubState {
   occurrences: Record<string, OccurrenceRecord>;
   activity: ActivityEvent[];
   earnedBadges: EarnedBadge[];
+  guides: Guide[];
   familyPoints: number;
   familyMilestonesUnlocked: number;
   familyRewardHistory: FamilyRewardHistoryEntry[];
@@ -138,6 +142,9 @@ interface FamilyHubState {
   snoozeTask: (taskId: string, hours: number, dateISO?: string) => void;
   addTask: (input: NewTaskInput) => string;
   removeTask: (taskId: string) => void;
+  addGuide: (title: string, content: string) => string;
+  updateGuide: (id: string, fields: { title?: string; content?: string }) => void;
+  removeGuide: (id: string) => void;
   addMember: (name: string, accentColor?: FamilyMember["accentColor"]) => string;
   removeMember: (id: string) => void;
   updateMemberPhoto: (id: string, photoUrl: string | null) => void;
@@ -301,6 +308,22 @@ function mergeBadges(local: EarnedBadge[], remote: EarnedBadge[]): EarnedBadge[]
   return Array.from(byKey.values());
 }
 
+function mergeGuides(local: Guide[], remote: Guide[]): Guide[] {
+  const byId = new Map<string, Guide>();
+  for (const g of local) byId.set(g.id, g);
+  for (const r of remote) {
+    const l = byId.get(r.id);
+    if (!l) {
+      byId.set(r.id, r);
+      continue;
+    }
+    const lTime = new Date(l.updatedAt || 0).getTime();
+    const rTime = new Date(r.updatedAt || 0).getTime();
+    byId.set(r.id, rTime > lTime ? r : l);
+  }
+  return Array.from(byId.values()).filter((g) => !g.deletedAt);
+}
+
 function mergeRewardHistory(
   local: FamilyRewardHistoryEntry[],
   remote: FamilyRewardHistoryEntry[],
@@ -316,6 +339,7 @@ interface MergeResult {
   occurrences: Record<string, OccurrenceRecord>;
   activity: ActivityEvent[];
   earnedBadges: EarnedBadge[];
+  guides: Guide[];
   familyPoints: number;
   familyMilestonesUnlocked: number;
   familyRewardHistory: FamilyRewardHistoryEntry[];
@@ -330,6 +354,7 @@ function mergeSnapshot(
     occurrences: Record<string, OccurrenceRecord>;
     activity: ActivityEvent[];
     earnedBadges: EarnedBadge[];
+    guides: Guide[];
     familyPoints: number;
     familyMilestonesUnlocked: number;
     familyRewardHistory: FamilyRewardHistoryEntry[];
@@ -354,6 +379,7 @@ function mergeSnapshot(
     occurrences: mergeOccurrences(local.occurrences, remote.occurrences as Record<string, OccurrenceRecord>),
     activity: mergeActivity(local.activity, remote.activity),
     earnedBadges: mergeBadges(local.earnedBadges, remote.earnedBadges),
+    guides: mergeGuides(local.guides, remote.guides),
     familyRewardHistory: mergeRewardHistory(local.familyRewardHistory, remote.familyRewardHistory),
     // What the server actually has right now — compared against next
     // time, to tell "deleted on the server" apart from "not pushed yet".
@@ -369,6 +395,7 @@ const EMPTY_STATE = {
   occurrences: {} as Record<string, OccurrenceRecord>,
   activity: [] as ActivityEvent[],
   earnedBadges: [] as EarnedBadge[],
+  guides: [] as Guide[],
   familyPoints: 0,
   familyMilestonesUnlocked: 0,
   familyRewardHistory: [] as FamilyRewardHistoryEntry[],
@@ -766,6 +793,45 @@ export const useFamilyStore = create<FamilyHubState>()(
         }
       },
 
+      addGuide: (title, content) => {
+        const id = newId("guide");
+        const now = new Date().toISOString();
+        const guide: Guide = { id, familyId: FAMILY_ID, title: title.trim(), content, updatedAt: now };
+        set((state) => ({ guides: [guide, ...state.guides] }));
+        const code = get().familyCode;
+        if (code) {
+          void pushGuide(guide, code).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
+        }
+        return id;
+      },
+
+      updateGuide: (id, fields) => {
+        set((state) => ({
+          guides: state.guides.map((g) =>
+            g.id === id ? { ...g, ...fields, updatedAt: new Date().toISOString() } : g,
+          ),
+        }));
+        const code = get().familyCode;
+        const updated = get().guides.find((g) => g.id === id);
+        if (code && updated) {
+          void pushGuide(updated, code).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
+        }
+      },
+
+      removeGuide: (id) => {
+        set((state) => ({ guides: state.guides.filter((g) => g.id !== id) }));
+        const code = get().familyCode;
+        if (code) {
+          void deleteRemoteGuide(id).then((result) => {
+            if (!result.ok) set({ lastSyncError: result.error });
+          });
+        }
+      },
+
       addMember: (name, accentColor) => {
         const state = get();
         const color = accentColor ?? ACCENT_CYCLE[state.members.length % ACCENT_CYCLE.length]!;
@@ -848,6 +914,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         set({ familyCode: code, lastSyncedAt: new Date().toISOString(), lastSyncError: null });
         await Promise.all(state.members.map((m) => pushMember(m, code)));
         await Promise.all(state.tasks.map((t) => pushTask(t, code)));
+        await Promise.all(state.guides.map((g) => pushGuide(g, code)));
         return code;
       },
 
@@ -897,6 +964,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         // pushing up, or it only exists here and vanishes on next pull.
         await Promise.all(members.map((m) => pushMember(m, trimmed)));
         await Promise.all(merged.tasks.map((t) => pushTask(t, trimmed)));
+        await Promise.all(merged.guides.map((g) => pushGuide(g, trimmed)));
         return true;
       },
 

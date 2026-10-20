@@ -197,6 +197,16 @@ export interface Reward {
   isMilestone?: boolean; // auto-generated "every +1000 points" tier
 }
 
+export interface Guide {
+  id: string;
+  familyId: string;
+  title: string;
+  content: string;
+  updatedAt: string;
+  /** Set (soft-delete) when removed while synced — see FamilyMember.deletedAt. */
+  deletedAt?: string | null;
+}
+
 export type ActivityEventType =
   | "task_assigned"
   | "task_completed"
