@@ -9,7 +9,7 @@
 // played when someone's about to refuse a task — themes still vary its
 // pitch so it isn't identical everywhere, but it's dissonant on purpose.
 
-export type SoundName = "complete" | "badge" | "reward" | "tap" | "created" | "preview" | "alarm";
+export type SoundName = "complete" | "badge" | "reward" | "tap" | "created" | "preview" | "alarm" | "urgentAlarm";
 export type SoundTheme = "xylophone" | "chiptune" | "bells" | "drums" | "space";
 
 export const SOUND_THEMES: { id: SoundTheme; label: string; emoji: string }[] = [
@@ -103,6 +103,18 @@ function buildRecipes(cfg: ThemeConfig): Record<SoundName, (audioCtx: AudioConte
         tone(audioCtx, low, now + offset, 0.26, { type: "sawtooth", gain: cfg.gain * 1.1 });
         tone(audioCtx, low * 1.06, now + offset, 0.26, { type: "sawtooth", gain: cfg.gain * 0.9 });
       });
+    },
+    // A real alarm-clock buzzer: harsh square wave alternating two pitches
+    // fast, always this loud and this annoying regardless of the chosen
+    // theme — the "do it now" screen replays this on a loop for as long
+    // as it stays open, by design, not just once.
+    urgentAlarm: (audioCtx) => {
+      const now = audioCtx.currentTime;
+      const high = 1046.5;
+      const low = 783.99;
+      for (let i = 0; i < 4; i++) {
+        tone(audioCtx, i % 2 === 0 ? high : low, now + i * 0.14, 0.13, { type: "square", gain: 0.22 });
+      }
     },
   };
 }

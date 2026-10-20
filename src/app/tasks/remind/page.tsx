@@ -46,6 +46,25 @@ function TaskReminderContent() {
     if (confirmingRefuse) playSound("alarm", soundEnabled, soundTheme);
   }, [confirmingRefuse, soundEnabled, soundTheme]);
 
+  // The due-now screen (not the "freshly assigned" one, not the refuse
+  // confirmation, not someone who isn't the assignee) keeps buzzing like
+  // an actual alarm clock for as long as it's open — it only stops
+  // because leaving the screen (any of the three actions, or the back
+  // button) unmounts this effect. Computed from raw state rather than
+  // the `canAct`/`task` consts below, since those are declared after an
+  // early return and hooks can't live past one.
+  const isUrgentScreen =
+    !!task &&
+    (task.assignee.kind === "family" || task.assignee.memberIds.includes(whoAmI ?? "")) &&
+    !isFreshlyAssigned &&
+    !confirmingRefuse;
+  useEffect(() => {
+    if (!isUrgentScreen) return;
+    playSound("urgentAlarm", soundEnabled, soundTheme);
+    const interval = setInterval(() => playSound("urgentAlarm", soundEnabled, soundTheme), 2500);
+    return () => clearInterval(interval);
+  }, [isUrgentScreen, soundEnabled, soundTheme]);
+
   if (!task) {
     return (
       <main className="flex flex-1 items-center justify-center p-6">

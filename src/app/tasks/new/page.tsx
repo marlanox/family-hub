@@ -22,7 +22,7 @@ const RECURRENCE_OPTIONS: { value: RecurrenceType; label: string }[] = [
   { value: "daily", label: "Каждый день" },
   { value: "weekdays", label: "По будням" },
   { value: "weekends", label: "По выходным" },
-  { value: "custom_days", label: "По дням недели" },
+  { value: "custom_days", label: "Выбрать дни ✓" },
   { value: "times_per_week", label: "Несколько раз в неделю" },
 ];
 
@@ -265,35 +265,43 @@ export default function NewTaskPage() {
         </Field>
 
         <Field label="Когда?">
-          <select
-            value={recurrence}
-            onChange={(e) => setRecurrence(e.target.value as RecurrenceType)}
-            className="w-full rounded-xl border-3 border-ink bg-white px-3 py-2.5 font-semibold outline-none"
-          >
+          <div className="grid grid-cols-2 gap-2">
             {RECURRENCE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        {recurrence === "custom_days" && (
-          <div className="flex flex-wrap gap-2">
-            {DOW.map((label, i) => (
               <button
-                key={label}
+                key={o.value}
                 type="button"
-                onClick={() => toggleDay(i)}
+                aria-pressed={recurrence === o.value}
+                onClick={() => setRecurrence(o.value)}
                 className={cn(
-                  "h-9 w-9 rounded-full border-3 border-ink font-display text-xs shadow-pop-sm",
-                  daysOfWeek.includes(i) ? "bg-pink text-white" : "bg-white",
+                  "rounded-xl border-3 border-ink py-2.5 text-center font-display text-[11px] uppercase shadow-pop-sm",
+                  recurrence === o.value ? "bg-sky" : "bg-white",
                 )}
               >
-                {label}
+                {o.label}
               </button>
             ))}
           </div>
+        </Field>
+
+        {recurrence === "custom_days" && (
+          <Field label="Какие дни?">
+            <div className="flex flex-wrap gap-2">
+              {DOW.map((label, i) => (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={daysOfWeek.includes(i)}
+                  onClick={() => toggleDay(i)}
+                  className={cn(
+                    "h-10 w-10 rounded-full border-3 border-ink font-display text-xs shadow-pop-sm",
+                    daysOfWeek.includes(i) ? "bg-pink text-white" : "bg-white",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </Field>
         )}
 
         {recurrence === "once" && (
