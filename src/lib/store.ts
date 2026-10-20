@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { isScheduledOn, occurrenceKey, todayISO } from "./schedule";
+import { isScheduledOn, occurrenceKey, resolveAssigneeIds, todayISO } from "./schedule";
 import { playSound, type SoundTheme } from "./sound";
 import {
   createRemoteFamily,
@@ -166,7 +166,18 @@ interface FamilyHubState {
   logActivity: (event: Omit<ActivityEvent, "id" | "familyId" | "createdAt">) => void;
 }
 
-function assigneeMembers(assignee: TaskAssignee, members: FamilyMember[]): FamilyMember[] {
+// Who should actually act on one specific occurrence — a "rotation"
+// assignee resolves to whoever's week it is, not the whole pool.
+function assigneeMembers(assignee: TaskAssignee, members: FamilyMember[], dateISO: string): FamilyMember[] {
+  const ids = resolveAssigneeIds(assignee, dateISO);
+  if (ids === "family") return members;
+  return members.filter((m) => ids.includes(m.id));
+}
+
+// The full named pool this task concerns, ignoring whose turn it is —
+// used for display/labels that talk about the task in general (e.g. the
+// "new task assigned" message), not about one day's occurrence.
+function assigneePoolMembers(assignee: TaskAssignee, members: FamilyMember[]): FamilyMember[] {
   if (assignee.kind === "family") return members;
   return members.filter((m) => assignee.memberIds.includes(m.id));
 }
@@ -457,7 +468,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         const key = occurrenceKey(taskId, dateISO);
         if (state.occurrences[key]?.status === "completed") return;
 
-        const members = assigneeMembers(task.assignee, state.members);
+        const members = assigneeMembers(task.assignee, state.members, dateISO);
         const now = new Date().toISOString();
         const hourNow = new Date().getHours();
         const celebrations: Celebration[] = [];
@@ -628,7 +639,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         const task = state.tasks.find((t) => t.id === taskId);
         if (!task) return;
         const key = occurrenceKey(taskId, dateISO);
-        const members = assigneeMembers(task.assignee, state.members);
+        const members = assigneeMembers(task.assignee, state.members, dateISO);
         const names = members.map((m) => m.displayName).join(", ");
 
         set({
@@ -690,7 +701,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         });
         if (!task) return;
 
-        const members = assigneeMembers(task.assignee, state.members);
+        const members = assigneeMembers(task.assignee, state.members, dateISO);
         const names = members.map((m) => m.displayName).join(", ");
         const until = hours < 1 ? `${Math.round(hours * 60)} мин` : hours === 1 ? "час" : `${hours} ч`;
         const snoozedMessage = `${names} перенес(ла) «${task.title}» на ${until}`;
@@ -738,9 +749,14 @@ export const useFamilyStore = create<FamilyHubState>()(
 
         const state = get();
         const creator = state.members.find((m) => m.id === input.creatorId);
-        const assignees = assigneeMembers(input.assignee, state.members);
+        const assignees = assigneePoolMembers(input.assignee, state.members);
+        const assigneeNames = assignees.map((m) => m.displayName).join(", ") || "кому-то";
         const assigneeLabel =
-          input.assignee.kind === "family" ? "всем" : assignees.map((m) => m.displayName).join(", ") || "кому-то";
+          input.assignee.kind === "family"
+            ? "всем"
+            : input.assignee.kind === "rotation"
+              ? `по очереди (${assigneeNames})`
+              : assigneeNames;
         const message = `${creator?.displayName ?? "Кто-то"} назначил(а) новую задачу «${task.title}»: ${assigneeLabel}`;
 
         // Logged locally (and synced below) even without a push

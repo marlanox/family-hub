@@ -4,7 +4,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { Icon } from "@/components/Icon";
 import { TaskCard } from "@/components/TaskCard";
 import { useFamilyStore } from "@/lib/store";
-import { todayISO } from "@/lib/schedule";
+import { resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
 import { useState } from "react";
@@ -31,8 +31,10 @@ export default function PlanPage() {
   const now = new Date();
   const key = todayISO(now);
 
-  const involves = (task: Task, memberId: string) =>
-    task.assignee.kind === "family" || task.assignee.memberIds.includes(memberId);
+  const involves = (task: Task, memberId: string) => {
+    const ids = resolveAssigneeIds(task.assignee, key);
+    return ids === "family" || ids.includes(memberId);
+  };
 
   const visible = filter === "all" ? tasks : tasks.filter((t) => involves(t, filter));
 
@@ -79,13 +81,12 @@ export default function PlanPage() {
                 icon={task.icon}
                 color={task.color}
                 title={task.title}
-                assigneeLabel={
-                  task.assignee.kind === "family"
+                assigneeLabel={(() => {
+                  const ids = resolveAssigneeIds(task.assignee, key);
+                  return ids === "family"
                     ? "Всем"
-                    : task.assignee.memberIds
-                        .map((id) => members.find((m) => m.id === id)?.displayName ?? id)
-                        .join(", ")
-                }
+                    : ids.map((id) => members.find((m) => m.id === id)?.displayName ?? id).join(", ");
+                })()}
                 timeLabel={timeLabel(task)}
                 points={task.points}
                 completed={status === "completed"}

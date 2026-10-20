@@ -1,4 +1,4 @@
-import type { Task } from "./types";
+import type { Task, TaskAssignee } from "./types";
 
 // Local calendar date, NOT UTC — d.toISOString() shifts to UTC, which
 // disagrees with the local date for part of the day in any positive-UTC
@@ -42,4 +42,30 @@ export function isScheduledOn(task: Task, date: Date): boolean {
 
 export function occurrenceKey(taskId: string, dateISO: string): string {
   return `${taskId}__${dateISO}`;
+}
+
+// A fixed Monday reference point — every date maps to a stable week
+// index counted from here, so whichever day of the week a "rotation"
+// task actually falls on, every occurrence within the same calendar
+// week resolves to the same person.
+const ROTATION_EPOCH = Date.UTC(2024, 0, 1);
+
+function weekIndexFor(dateISO: string): number {
+  const d = new Date(`${dateISO}T00:00:00Z`).getTime();
+  return Math.floor((d - ROTATION_EPOCH) / (7 * 86400000));
+}
+
+/**
+ * Resolves a task's assignee to actual member ids for one specific
+ * occurrence date. Everything but "rotation" is date-independent;
+ * "rotation" alternates weekly among its members, one at a time.
+ */
+export function resolveAssigneeIds(assignee: TaskAssignee, dateISO: string): string[] | "family" {
+  if (assignee.kind === "family") return "family";
+  if (assignee.kind === "member") return assignee.memberIds;
+  if (assignee.memberIds.length === 0) return [];
+  const idx =
+    ((weekIndexFor(dateISO) % assignee.memberIds.length) + assignee.memberIds.length) %
+    assignee.memberIds.length;
+  return [assignee.memberIds[idx]!];
 }

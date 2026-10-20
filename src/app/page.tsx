@@ -8,7 +8,7 @@ import { HeaderBanner } from "@/components/HeaderBanner";
 import { Icon } from "@/components/Icon";
 import { SectionTitle } from "@/components/SectionTitle";
 import { TaskCard } from "@/components/TaskCard";
-import { occurrenceKey, todayISO } from "@/lib/schedule";
+import { occurrenceKey, resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { useFamilyStore } from "@/lib/store";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
@@ -33,14 +33,13 @@ export default function HomePage() {
     [members],
   );
 
+  const todayKey = todayISO();
   const assigneeLabel = (task: Task) => {
-    if (task.assignee.kind === "family") return "Всем";
-    return task.assignee.memberIds
-      .map((id) => members.find((m) => m.id === id)?.displayName ?? id)
-      .join(", ");
+    const ids = resolveAssigneeIds(task.assignee, todayKey);
+    if (ids === "family") return "Всем";
+    return ids.map((id) => members.find((m) => m.id === id)?.displayName ?? id).join(", ");
   };
 
-  const todayKey = todayISO();
   const pendingCount = todaysTasks.filter(
     (t) => (occurrences[occurrenceKey(t.id, todayKey)]?.status ?? "pending") !== "completed",
   ).length;

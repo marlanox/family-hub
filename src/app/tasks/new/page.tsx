@@ -47,7 +47,7 @@ export default function NewTaskPage() {
   // neither was picked, submit() silently refused with an inline error,
   // and nothing else happened (no sound, no navigating back), which
   // looked exactly like the button doing nothing.
-  const [assignFamily, setAssignFamily] = useState(true);
+  const [assignMode, setAssignMode] = useState<"family" | "fixed" | "rotation">("family");
   const [recurrence, setRecurrence] = useState<RecurrenceType>("once");
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
   const [dueTime, setDueTime] = useState("12:00");
@@ -63,7 +63,8 @@ export default function NewTaskPage() {
   // pick, "Своя задача", the difficulty selector, …).
   const creatorName = members.find((m) => m.id === whoAmI)?.displayName.trim().toLowerCase();
   const targetsMasha =
-    assignFamily || assigneeIds.some((id) => members.find((m) => m.id === id)?.displayName.trim().toLowerCase() === "маша");
+    assignMode === "family" ||
+    assigneeIds.some((id) => members.find((m) => m.id === id)?.displayName.trim().toLowerCase() === "маша");
   const minPoints = creatorName === "наташа" && targetsMasha ? 50 : 5;
   const effectivePoints = Math.max(minPoints, points);
 
@@ -90,7 +91,6 @@ export default function NewTaskPage() {
   }
 
   function toggleAssignee(id: string) {
-    setAssignFamily(false);
     setAssigneeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
@@ -99,8 +99,12 @@ export default function NewTaskPage() {
       setError("Дайте задаче название");
       return;
     }
-    if (!assignFamily && assigneeIds.length === 0) {
+    if (assignMode !== "family" && assigneeIds.length === 0) {
       setError("Выберите, кому назначить задачу");
+      return;
+    }
+    if (assignMode === "rotation" && assigneeIds.length < 2) {
+      setError("Для «по очереди» выберите минимум двух человек");
       return;
     }
     if (recurrence === "custom_days" && daysOfWeek.length === 0) {
@@ -116,7 +120,12 @@ export default function NewTaskPage() {
       color,
       points: effectivePoints,
       difficulty,
-      assignee: assignFamily ? { kind: "family" } : { kind: "member", memberIds: assigneeIds },
+      assignee:
+        assignMode === "family"
+          ? { kind: "family" }
+          : assignMode === "rotation"
+            ? { kind: "rotation", memberIds: assigneeIds }
+            : { kind: "member", memberIds: assigneeIds },
       // Who actually created the task, not who it's assigned to — those
       // used to be conflated, so "Маша назначила Ване" showed up in
       // Activity as "Ваня назначил(а) Ване".
@@ -235,33 +244,63 @@ export default function NewTaskPage() {
 
         <Field label="Кому назначить?">
           <div className="flex flex-wrap gap-2">
-            {members.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => toggleAssignee(m.id)}
-                className={cn(
-                  "rounded-full border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
-                  !assignFamily && assigneeIds.includes(m.id) ? "bg-sky" : "bg-white",
-                )}
-              >
-                {m.displayName}
-              </button>
-            ))}
             <button
               type="button"
               onClick={() => {
-                setAssignFamily(true);
+                setAssignMode("family");
                 setAssigneeIds([]);
               }}
               className={cn(
                 "rounded-full border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
-                assignFamily ? "bg-sky" : "bg-white",
+                assignMode === "family" ? "bg-sky" : "bg-white",
               )}
             >
               Всем
             </button>
+            <button
+              type="button"
+              onClick={() => setAssignMode("fixed")}
+              className={cn(
+                "rounded-full border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
+                assignMode === "fixed" ? "bg-sky" : "bg-white",
+              )}
+            >
+              Конкретным
+            </button>
+            <button
+              type="button"
+              onClick={() => setAssignMode("rotation")}
+              className={cn(
+                "rounded-full border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
+                assignMode === "rotation" ? "bg-sky" : "bg-white",
+              )}
+            >
+              По очереди
+            </button>
           </div>
+
+          {assignMode !== "family" && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {members.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => toggleAssignee(m.id)}
+                  className={cn(
+                    "rounded-full border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
+                    assigneeIds.includes(m.id) ? "bg-sky" : "bg-white",
+                  )}
+                >
+                  {m.displayName}
+                </button>
+              ))}
+            </div>
+          )}
+          {assignMode === "rotation" && (
+            <p className="mt-2 px-1 text-xs font-semibold text-ink/50">
+              Каждую неделю задача будет доставаться по очереди одному из выбранных.
+            </p>
+          )}
         </Field>
 
         <Field label="Когда?">

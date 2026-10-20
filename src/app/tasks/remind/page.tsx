@@ -3,6 +3,7 @@
 import { ComicButton } from "@/components/ComicButton";
 import { Icon } from "@/components/Icon";
 import { GrumpyDogArt } from "@/components/PetArt";
+import { resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { playSound } from "@/lib/sound";
 import { useFamilyStore } from "@/lib/store";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -46,18 +47,22 @@ function TaskReminderContent() {
     if (confirmingRefuse) playSound("alarm", soundEnabled, soundTheme);
   }, [confirmingRefuse, soundEnabled, soundTheme]);
 
+  // A "rotation" assignee alternates weekly, so whether this is actually
+  // mine to act on can only be answered for a specific date — today,
+  // since this screen is always about the current occurrence. Computed
+  // from raw state rather than the `canAct`/`task` consts below, since
+  // those are declared after an early return and hooks can't live past
+  // one.
+  const todayKey = todayISO();
+  const resolvedIds = task ? resolveAssigneeIds(task.assignee, todayKey) : "family";
+  const isMineToday = resolvedIds === "family" || resolvedIds.includes(whoAmI ?? "");
+
   // The due-now screen (not the "freshly assigned" one, not the refuse
-  // confirmation, not someone who isn't the assignee) keeps buzzing like
-  // an actual alarm clock for as long as it's open — it only stops
+  // confirmation, not someone who isn't today's assignee) keeps buzzing
+  // like an actual alarm clock for as long as it's open — it only stops
   // because leaving the screen (any of the three actions, or the back
-  // button) unmounts this effect. Computed from raw state rather than
-  // the `canAct`/`task` consts below, since those are declared after an
-  // early return and hooks can't live past one.
-  const isUrgentScreen =
-    !!task &&
-    (task.assignee.kind === "family" || task.assignee.memberIds.includes(whoAmI ?? "")) &&
-    !isFreshlyAssigned &&
-    !confirmingRefuse;
+  // button) unmounts this effect.
+  const isUrgentScreen = !!task && isMineToday && !isFreshlyAssigned && !confirmingRefuse;
   useEffect(() => {
     if (!isUrgentScreen) return;
     playSound("urgentAlarm", soundEnabled, soundTheme);
@@ -74,17 +79,16 @@ function TaskReminderContent() {
   }
 
   const names =
-    task.assignee.kind === "family"
+    resolvedIds === "family"
       ? "Все"
-      : task.assignee.memberIds
-          .map((mid) => members.find((m) => m.id === mid)?.displayName ?? mid)
-          .join(", ");
+      : resolvedIds.map((mid) => members.find((m) => m.id === mid)?.displayName ?? mid).join(", ");
   const creatorName = members.find((m) => m.id === task.creatorId)?.displayName;
 
-  // Only the person(s) this task is actually assigned to can act on it —
-  // someone just looking at it (or whose own device happens to be open)
-  // shouldn't be able to answer for someone else.
-  const canAct = task.assignee.kind === "family" || task.assignee.memberIds.includes(whoAmI ?? "");
+  // Only whoever this occurrence is actually assigned to today can act
+  // on it — someone just looking at it (or whose own device happens to
+  // be open) shouldn't be able to answer for someone else, and on a
+  // "rotation" task that's whoever's week it is, not the whole pool.
+  const canAct = isMineToday;
 
   if (!canAct) {
     return (

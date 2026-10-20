@@ -3,7 +3,7 @@
 import { BottomNav } from "@/components/BottomNav";
 import { Icon } from "@/components/Icon";
 import { TaskCard } from "@/components/TaskCard";
-import { isScheduledOn, todayISO } from "@/lib/schedule";
+import { isScheduledOn, resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { useFamilyStore } from "@/lib/store";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
@@ -48,14 +48,15 @@ export default function CalendarPage() {
   const weekStart = useMemo(() => addDays(startOfWeek(new Date()), weekOffset * 7), [weekOffset]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
-  const involves = (task: Task, memberId: string) =>
-    task.assignee.kind === "family" || task.assignee.memberIds.includes(memberId);
+  const involves = (task: Task, memberId: string, dateISO: string) => {
+    const ids = resolveAssigneeIds(task.assignee, dateISO);
+    return ids === "family" || ids.includes(memberId);
+  };
 
-  const assigneeLabel = (task: Task) => {
-    if (task.assignee.kind === "family") return "Всем";
-    return task.assignee.memberIds
-      .map((id) => members.find((m) => m.id === id)?.displayName ?? id)
-      .join(", ");
+  const assigneeLabel = (task: Task, dateISO: string) => {
+    const ids = resolveAssigneeIds(task.assignee, dateISO);
+    if (ids === "family") return "Всем";
+    return ids.map((id) => members.find((m) => m.id === id)?.displayName ?? id).join(", ");
   };
 
   return (
@@ -97,7 +98,7 @@ export default function CalendarPage() {
         {days.map((date) => {
           const dateISO = todayISO(date);
           const dayTasks = tasks.filter(
-            (t) => isScheduledOn(t, date) && (filter === "all" || involves(t, filter)),
+            (t) => isScheduledOn(t, date) && (filter === "all" || involves(t, filter, dateISO)),
           );
           const isToday = dateISO === todayISO();
           const isOpen = openDay === dateISO;
@@ -131,7 +132,7 @@ export default function CalendarPage() {
                           icon={task.icon}
                           color={task.color}
                           title={task.title}
-                          assigneeLabel={assigneeLabel(task)}
+                          assigneeLabel={assigneeLabel(task, dateISO)}
                           timeLabel={timeLabel(task)}
                           points={task.points}
                           completed={status === "completed"}

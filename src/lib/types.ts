@@ -105,7 +105,10 @@ export interface Family {
 
 export type TaskAssignee =
   | { kind: "member"; memberIds: string[] }
-  | { kind: "family" };
+  | { kind: "family" }
+  // Alternates weekly among memberIds — see resolveAssigneeIds in
+  // schedule.ts for which one is actually "on duty" on a given date.
+  | { kind: "rotation"; memberIds: string[] };
 
 export interface Task {
   id: string;

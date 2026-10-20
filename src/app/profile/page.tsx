@@ -6,7 +6,7 @@ import { FamilyMemberSticker } from "@/components/FamilyMemberSticker";
 import { Icon } from "@/components/Icon";
 import { TaskCard } from "@/components/TaskCard";
 import { accentMap } from "@/lib/colors";
-import { todayISO } from "@/lib/schedule";
+import { resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { useFamilyStore } from "@/lib/store";
 import { uploadPhoto } from "@/lib/sync";
 import type { IconKey } from "@/lib/types";
@@ -59,10 +59,11 @@ function ProfileContent() {
 
   const rank = [...members].sort((a, b) => b.points - a.points).findIndex((m) => m.id === member.id) + 1;
   const myBadges = earnedBadges.filter((b) => b.memberId === member.id);
-  const myTasks = tasks.filter(
-    (t) => t.assignee.kind === "family" || t.assignee.memberIds.includes(member.id),
-  );
   const key = todayISO();
+  const myTasks = tasks.filter((t) => {
+    const ids = resolveAssigneeIds(t.assignee, key);
+    return ids === "family" || ids.includes(member.id);
+  });
 
   const onPhotoChosen = async (file: File) => {
     const memberId = member.id;
