@@ -127,9 +127,24 @@ export function playSound(name: SoundName, enabled: boolean, theme: SoundTheme =
   if (!enabled) return;
   const audioCtx = getContext();
   if (!audioCtx) return;
-  try {
-    (RECIPES[theme] ?? RECIPES.xylophone)[name](audioCtx);
-  } catch {
-    // Audio is a nice-to-have; never let it break the app.
+  const run = () => {
+    try {
+      (RECIPES[theme] ?? RECIPES.xylophone)[name](audioCtx);
+    } catch {
+      // Audio is a nice-to-have; never let it break the app.
+    }
+  };
+  // On iOS specifically, a context that's still suspended schedules
+  // tones against a clock that isn't actually advancing — they get
+  // silently dropped rather than played late. Two call sites (the
+  // reminder screen's auto-playing alarms) create/touch the context
+  // outside a tap, which is exactly what leaves it suspended; waiting
+  // for resume() to actually finish before scheduling anything fixes
+  // those without changing anything for the normal already-unlocked
+  // case, where resume() on a running context resolves immediately.
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume().then(run, () => {});
+  } else {
+    run();
   }
 }
