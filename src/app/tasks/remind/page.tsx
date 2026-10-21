@@ -39,9 +39,23 @@ function TaskReminderContent() {
   const completeTask = useFamilyStore((s) => s.completeTask);
   const refuseTask = useFamilyStore((s) => s.refuseTask);
   const snoozeTask = useFamilyStore((s) => s.snoozeTask);
+  const hasHydrated = useFamilyStore((s) => s.hasHydrated);
+  const familyCode = useFamilyStore((s) => s.familyCode);
+  const pullSync = useFamilyStore((s) => s.pullSync);
   const [confirmingRefuse, setConfirmingRefuse] = useState(false);
   const [reason, setReason] = useState<string>("Без причины");
   const [customReason, setCustomReason] = useState("");
+  // Tapping a push notification can cold-start the app straight onto
+  // this screen, before the periodic RemoteSync poll has had a chance
+  // to pull down a task that was only just created on someone else's
+  // phone — without this, that race looked exactly like "the task
+  // doesn't exist," permanently, instead of "still loading."
+  const [triedSync, setTriedSync] = useState(false);
+  useEffect(() => {
+    if (task || triedSync || !hasHydrated || !familyCode) return;
+    setTriedSync(true);
+    void pullSync();
+  }, [task, triedSync, hasHydrated, familyCode, pullSync]);
 
   useEffect(() => {
     if (confirmingRefuse) playSound("alarm", soundEnabled, soundTheme);
@@ -71,9 +85,14 @@ function TaskReminderContent() {
   }, [isUrgentScreen, soundEnabled, soundTheme]);
 
   if (!task) {
+    // Still worth waiting for: hydration hasn't finished, or a sync
+    // pull is in flight and hasn't come back yet.
+    const stillLoading = !hasHydrated || (familyCode && !triedSync);
     return (
       <main className="flex flex-1 items-center justify-center p-6">
-        <p className="font-semibold text-ink/60">Задача не найдена</p>
+        <p className="font-semibold text-ink/60">
+          {stillLoading ? "Загружаем…" : "Задача не найдена"}
+        </p>
       </main>
     );
   }
