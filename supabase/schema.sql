@@ -359,6 +359,28 @@ create policy "anyone with the anon key can read/write family_guides"
 alter publication supabase_realtime add table family_members, tasks, task_occurrences, family_activity, family_reward_history, family_guides;
 
 -- ---------------------------------------------------------------------
+-- Table-level grants — separate from RLS above. RLS controls which ROWS
+-- a role can see once it's allowed to touch the table at all; these
+-- GRANTs are what let anon/authenticated touch the table in the first
+-- place. Newer Supabase projects stop doing this automatically for
+-- tables created after a certain point ("new tables in public need
+-- explicit grants") — without this block, any table created later
+-- (including one a future migration snippet adds) would reject the
+-- app's anon-key requests even though RLS above says they're allowed.
+-- `alter default privileges` makes this apply to every future table
+-- too, not just the ones that exist right now.
+-- ---------------------------------------------------------------------
+
+grant usage on schema public to anon, authenticated;
+grant all on all tables in schema public to anon, authenticated;
+grant all on all sequences in schema public to anon, authenticated;
+grant all on all functions in schema public to anon, authenticated;
+
+alter default privileges in schema public grant all on tables to anon, authenticated;
+alter default privileges in schema public grant all on sequences to anon, authenticated;
+alter default privileges in schema public grant all on functions to anon, authenticated;
+
+-- ---------------------------------------------------------------------
 -- Storage — profile photos. Public bucket: anyone with a photo's exact
 -- URL can view it (fine for a family avatar), but listing/guessing is
 -- not possible without the id. Same anon-key trust model as everywhere
