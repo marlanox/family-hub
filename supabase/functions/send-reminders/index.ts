@@ -98,6 +98,32 @@ interface TaskRow {
   once_date: string | null;
 }
 
+// Mirrors src/lib/schedule.ts resolveAssigneeIds() — keep these two in
+// sync. Without this, a "rotation" assignee fell through to the plain
+// memberIds branch below and got treated as "everyone in the pool, every
+// time" instead of "whoever's week it actually is" — so e.g. a litter-box
+// task alternating Маша/Наташа nagged BOTH of them every sweep, including
+// the one who isn't even on duty that week and can't act on it in the app.
+const ROTATION_EPOCH = Date.UTC(2024, 0, 1);
+
+function weekIndexFor(dateISO: string): number {
+  const d = new Date(`${dateISO}T00:00:00Z`).getTime();
+  return Math.floor((d - ROTATION_EPOCH) / (7 * 86400000));
+}
+
+function resolveAssigneeIds(
+  assignee: { kind: string; memberIds?: string[] },
+  dateISO: string,
+  allMemberIds: string[],
+): string[] {
+  if (assignee?.kind === "family") return allMemberIds;
+  const memberIds = assignee?.memberIds ?? [];
+  if (assignee?.kind !== "rotation") return memberIds;
+  if (memberIds.length === 0) return [];
+  const idx = ((weekIndexFor(dateISO) % memberIds.length) + memberIds.length) % memberIds.length;
+  return [memberIds[idx]!];
+}
+
 interface OccurrenceRow {
   task_id: string;
   status: string;
@@ -175,7 +201,7 @@ Deno.serve(async (req: Request) => {
           occ?.status === "snoozed" && occ.snoozed_until != null && new Date(occ.snoozed_until).getTime() > Date.now();
         if (isDone || stillSnoozing) continue;
 
-        const targetIds = task.assignee?.kind === "family" ? allMemberIds : task.assignee?.memberIds ?? [];
+        const targetIds = resolveAssigneeIds(task.assignee, dateISO, allMemberIds);
         if (targetIds.length === 0) continue;
 
         const { data: subs } = await supabase.from("push_subscriptions").select("*").in("member_id", targetIds);
