@@ -4,14 +4,28 @@ import type { ReactNode } from "react";
 interface HeaderBannerProps {
   title: string;
   tag?: string;
-  color?: "pink" | "yellow" | "sky";
+  color?: "pink" | "yellow" | "sky" | "turquoise";
   action?: ReactNode;
   className?: string;
 }
 
+const BG: Record<NonNullable<HeaderBannerProps["color"]>, string> = {
+  pink: "bg-pink",
+  yellow: "bg-yellow",
+  sky: "bg-sky",
+  turquoise: "bg-turquoise",
+};
+
+const TEXT: Record<NonNullable<HeaderBannerProps["color"]>, string> = {
+  pink: "text-white",
+  yellow: "text-ink",
+  sky: "text-ink",
+  turquoise: "text-ink",
+};
+
 export function HeaderBanner({ title, tag, color = "pink", action, className }: HeaderBannerProps) {
-  const bg = color === "pink" ? "bg-pink" : color === "yellow" ? "bg-yellow" : "bg-sky";
-  const text = color === "pink" ? "text-white" : "text-ink";
+  const bg = BG[color];
+  const text = TEXT[color];
 
   return (
     <div className={cn("flex items-start justify-between gap-2 px-4 pt-4", className)}>

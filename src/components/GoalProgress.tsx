@@ -11,7 +11,7 @@ export function GoalProgress({ title, subtitle, current, target }: GoalProgressP
   const pct = Math.min(100, Math.round((current / target) * 100));
 
   return (
-    <div className="rounded-sticker border-3 border-ink bg-pink-soft p-4 shadow-pop">
+    <div className="rounded-sticker border-3 border-ink bg-acid p-4 shadow-pop">
       <div className="flex items-start justify-between">
         <div>
           <p className="font-display text-sm uppercase leading-tight">{title}</p>
@@ -23,7 +23,7 @@ export function GoalProgress({ title, subtitle, current, target }: GoalProgressP
       </div>
       <div className="mt-3 h-6 w-full overflow-hidden rounded-full border-3 border-ink bg-white">
         <div
-          className="h-full bg-mint transition-all"
+          className="h-full bg-turquoise transition-all"
           style={{ width: `${pct}%` }}
         />
       </div>

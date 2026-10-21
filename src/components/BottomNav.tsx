@@ -13,8 +13,17 @@ const items: { href: string; label: string; icon: IconKey }[] = [
   { href: "/rewards", label: "Награды", icon: "gift" },
 ];
 
+// next.config.js sets trailingSlash: true, so a static export's actual
+// pathname is "/plan/", never "/plan" — comparing that raw against
+// `item.href` ("/plan") never matched for anything but "/" itself,
+// which is exactly why only "Главная" ever visually lit up as active,
+// on every single page, regardless of which one was actually open.
+function stripTrailingSlash(path: string): string {
+  return path !== "/" && path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
 export function BottomNav() {
-  const pathname = usePathname();
+  const pathname = stripTrailingSlash(usePathname());
 
   return (
     <nav className="sticky bottom-0 z-10 border-t-3 border-ink bg-white px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">

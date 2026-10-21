@@ -32,6 +32,14 @@ const config: Config = {
           DEFAULT: "#FF6F5E",
           soft: "#FFCFC7",
         },
+        turquoise: {
+          DEFAULT: "#00E5C8",
+          soft: "#9BFBEF",
+        },
+        acid: {
+          DEFAULT: "#9CFF2E",
+          soft: "#DFFFB0",
+        },
       },
       fontFamily: {
         display: ["var(--font-display)", "system-ui", "sans-serif"],

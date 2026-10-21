@@ -50,20 +50,20 @@ export default function HomePage() {
         <HeaderBanner
           title="Наша семья"
           tag="Вместе лучше 🙂"
-          color="pink"
+          color="turquoise"
           action={
             <div className="flex gap-2">
               <Link
                 href="/guides"
                 aria-label="Инструкции"
-                className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-white shadow-pop-sm"
+                className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-acid shadow-pop-sm"
               >
                 <Icon name="checklist" className="h-5 w-5" />
               </Link>
               <Link
                 href="/settings"
                 aria-label="Настройки семьи"
-                className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-white shadow-pop-sm"
+                className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-acid shadow-pop-sm"
               >
                 <Icon name="settings" className="h-5 w-5" />
               </Link>
