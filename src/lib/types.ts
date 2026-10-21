@@ -219,7 +219,8 @@ export type ActivityEventType =
   | "points_awarded"
   | "badge_earned"
   | "reward_unlocked"
-  | "member_joined";
+  | "member_joined"
+  | "guide_updated";
 
 export interface ActivityEvent {
   id: string;

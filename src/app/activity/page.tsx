@@ -16,6 +16,7 @@ const ICONS: Record<ActivityEventType, IconKey> = {
   badge_earned: "star",
   reward_unlocked: "gift",
   member_joined: "family",
+  guide_updated: "checklist",
 };
 
 const TONES: Record<ActivityEventType, string> = {
@@ -28,6 +29,7 @@ const TONES: Record<ActivityEventType, string> = {
   badge_earned: "bg-yellow",
   reward_unlocked: "bg-lilac-soft",
   member_joined: "bg-sky-soft",
+  guide_updated: "bg-mint",
 };
 
 export default function ActivityPage() {

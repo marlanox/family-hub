@@ -812,11 +812,34 @@ export const useFamilyStore = create<FamilyHubState>()(
       addGuide: (title, content) => {
         const id = newId("guide");
         const now = new Date().toISOString();
-        const guide: Guide = { id, familyId: FAMILY_ID, title: title.trim(), content, updatedAt: now };
+        const trimmedTitle = title.trim();
+        const guide: Guide = { id, familyId: FAMILY_ID, title: trimmedTitle, content, updatedAt: now };
         set((state) => ({ guides: [guide, ...state.guides] }));
-        const code = get().familyCode;
+
+        const state = get();
+        const editorId = state.whoAmI ?? state.members[0]?.id ?? "";
+        const editorName = state.members.find((m) => m.id === editorId)?.displayName ?? "Кто-то";
+        const message = `${editorName} добавил(а) инструкцию «${trimmedTitle}»`;
+        get().logActivity({ type: "guide_updated", memberId: editorId, message });
+
+        const code = state.familyCode;
         if (code) {
           void pushGuide(guide, code).then((r) => {
+            if (!r.ok) {
+              set({ lastSyncError: r.error });
+              return;
+            }
+            void pushActivity(
+              { id: "", familyId: code, type: "guide_updated", memberId: editorId, message, createdAt: now },
+              code,
+            ).then((r2) => {
+              if (!r2.ok) set({ lastSyncError: r2.error });
+            });
+          });
+          // Everyone gets this, including whoever just added it — same
+          // as a new task, this is something the person who acted
+          // explicitly wants reflected back on their own phone too.
+          void notifyFamily(code, [], "📋 Новая инструкция", message, "/guides").then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
         }
@@ -829,21 +852,61 @@ export const useFamilyStore = create<FamilyHubState>()(
             g.id === id ? { ...g, ...fields, updatedAt: new Date().toISOString() } : g,
           ),
         }));
-        const code = get().familyCode;
-        const updated = get().guides.find((g) => g.id === id);
-        if (code && updated) {
+        const state = get();
+        const updated = state.guides.find((g) => g.id === id);
+        if (!updated) return;
+
+        const editorId = state.whoAmI ?? state.members[0]?.id ?? "";
+        const editorName = state.members.find((m) => m.id === editorId)?.displayName ?? "Кто-то";
+        const message = `${editorName} обновил(а) инструкцию «${updated.title}»`;
+        get().logActivity({ type: "guide_updated", memberId: editorId, message });
+
+        const code = state.familyCode;
+        if (code) {
           void pushGuide(updated, code).then((r) => {
+            if (!r.ok) {
+              set({ lastSyncError: r.error });
+              return;
+            }
+            void pushActivity(
+              { id: "", familyId: code, type: "guide_updated", memberId: editorId, message, createdAt: updated.updatedAt },
+              code,
+            ).then((r2) => {
+              if (!r2.ok) set({ lastSyncError: r2.error });
+            });
+          });
+          void notifyFamily(code, [], "📋 Инструкция обновлена", message, "/guides").then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
         }
       },
 
       removeGuide: (id) => {
-        set((state) => ({ guides: state.guides.filter((g) => g.id !== id) }));
-        const code = get().familyCode;
+        const state = get();
+        const removed = state.guides.find((g) => g.id === id);
+        set({ guides: state.guides.filter((g) => g.id !== id) });
+
+        const code = state.familyCode;
         if (code) {
           void deleteRemoteGuide(id).then((result) => {
             if (!result.ok) set({ lastSyncError: result.error });
+          });
+        }
+        if (!removed) return;
+
+        const editorId = state.whoAmI ?? state.members[0]?.id ?? "";
+        const editorName = state.members.find((m) => m.id === editorId)?.displayName ?? "Кто-то";
+        const message = `${editorName} удалил(а) инструкцию «${removed.title}»`;
+        get().logActivity({ type: "guide_updated", memberId: editorId, message });
+        if (code) {
+          void pushActivity(
+            { id: "", familyId: code, type: "guide_updated", memberId: editorId, message, createdAt: new Date().toISOString() },
+            code,
+          ).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
+          void notifyFamily(code, [], "🗑 Инструкция удалена", message, "/guides").then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
           });
         }
       },
