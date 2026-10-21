@@ -37,12 +37,6 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails("mailto:family-hub@example.com", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 }
 
-// A reminder fires once a task's due time has passed, within this many
-// minutes — wide enough to tolerate a slow or slightly-late cron tick,
-// narrow enough that restarting the sweep after a long outage doesn't
-// blast out reminders for everything that happened to be due hours ago.
-const DUE_WINDOW_MINUTES = 10;
-
 function nowInZone(tz: string): { dateISO: string; minutesSinceMidnight: number; dow: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: tz,
@@ -139,10 +133,18 @@ Deno.serve(async (req: Request) => {
         .eq("reminder_enabled", true)
         .not("due_time", "is", null);
 
+      // No upper bound here on purpose: once a task is due, it stays a
+      // candidate for the rest of the day — the alarm-clock nagging is
+      // supposed to continue indefinitely until it's dealt with, not
+      // stop after some fixed number of minutes. (It used to cap at 10
+      // minutes past due_time, which silently broke nagging after ANY
+      // snooze — 15 min/1h/3h are all past that cap — so the second
+      // reminder a snoozed task was supposed to get just never fired.
+      // The isDone/stillSnoozing check below is what actually silences
+      // a task now: completed/refused, or an unexpired snooze.)
       const dueTasks = ((tasks ?? []) as TaskRow[]).filter((t) => {
         if (!isScheduledToday(t.recurrence, t.once_date, dow, dateISO)) return false;
-        const dueMin = toMinutes(t.due_time);
-        return minutesSinceMidnight >= dueMin && minutesSinceMidnight - dueMin <= DUE_WINDOW_MINUTES;
+        return minutesSinceMidnight >= toMinutes(t.due_time);
       });
       if (dueTasks.length === 0) continue;
 
