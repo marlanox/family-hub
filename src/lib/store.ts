@@ -621,7 +621,15 @@ export const useFamilyStore = create<FamilyHubState>()(
         );
 
         if (state.familyCode) {
-          void pushComplete(task.id, dateISO, state.familyCode, task.points, members.map((m) => m.id));
+          // This is the one place points actually get written server-side
+          // (complete_task_occurrence runs the +points/streak/badge math
+          // atomically) — silently swallowing a failure here means this
+          // device's local points keep climbing (optimistic update above)
+          // while the server, and every other device, never see it. That
+          // mismatch was invisible until this error-check existed.
+          void pushComplete(task.id, dateISO, state.familyCode, task.points, members.map((m) => m.id)).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
           void notifyFamily(
             state.familyCode,
             members.map((m) => m.id),
@@ -662,7 +670,9 @@ export const useFamilyStore = create<FamilyHubState>()(
         });
 
         if (state.familyCode) {
-          void pushRefuse(taskId, dateISO, reason);
+          void pushRefuse(taskId, dateISO, reason).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
           void pushActivity(
             {
               id: "",
@@ -713,7 +723,9 @@ export const useFamilyStore = create<FamilyHubState>()(
         });
 
         if (state.familyCode) {
-          void pushSnooze(taskId, dateISO, hours);
+          void pushSnooze(taskId, dateISO, hours).then((r) => {
+            if (!r.ok) set({ lastSyncError: r.error });
+          });
           void pushActivity(
             {
               id: "",

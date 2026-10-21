@@ -308,9 +308,12 @@ export async function pushComplete(
   familyId: string,
   points: number,
   memberIds: string[],
-) {
+): Promise<
+  | { ok: true; data: { alreadyCompleted: boolean; badges: unknown[]; rewards: unknown[] } }
+  | { ok: false; error: string }
+> {
   const supabase = getSupabase();
-  if (!supabase) return null;
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
     const { data, error } = await supabase.rpc("complete_task_occurrence", {
       p_task_id: taskId,
@@ -319,10 +322,10 @@ export async function pushComplete(
       p_points: points,
       p_member_ids: memberIds,
     });
-    if (error) return null;
-    return data as { alreadyCompleted: boolean; badges: unknown[]; rewards: unknown[] };
-  } catch {
-    return null;
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, data: data as { alreadyCompleted: boolean; badges: unknown[]; rewards: unknown[] } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
