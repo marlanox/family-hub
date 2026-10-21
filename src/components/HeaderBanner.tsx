@@ -4,16 +4,18 @@ import type { ReactNode } from "react";
 interface HeaderBannerProps {
   title: string;
   tag?: string;
-  color?: "pink" | "yellow" | "sky" | "turquoise";
+  color?: "pink" | "yellow" | "sky" | "turquoise" | "rainbow";
   action?: ReactNode;
   className?: string;
 }
 
-const BG: Record<NonNullable<HeaderBannerProps["color"]>, string> = {
+const BG: Partial<Record<NonNullable<HeaderBannerProps["color"]>, string>> = {
   pink: "bg-pink",
   yellow: "bg-yellow",
   sky: "bg-sky",
   turquoise: "bg-turquoise",
+  // "rainbow" has no flat bg class — it's a gradient, applied as an
+  // inline style below instead.
 };
 
 const TEXT: Record<NonNullable<HeaderBannerProps["color"]>, string> = {
@@ -21,7 +23,11 @@ const TEXT: Record<NonNullable<HeaderBannerProps["color"]>, string> = {
   yellow: "text-ink",
   sky: "text-ink",
   turquoise: "text-ink",
+  rainbow: "text-white",
 };
+
+const RAINBOW_GRADIENT =
+  "linear-gradient(90deg, #FF3D94, #FFE000, #4CE0A0, #4FC1FF, #B79CFF)";
 
 export function HeaderBanner({ title, tag, color = "pink", action, className }: HeaderBannerProps) {
   const bg = BG[color];
@@ -29,8 +35,14 @@ export function HeaderBanner({ title, tag, color = "pink", action, className }: 
 
   return (
     <div className={cn("flex items-start justify-between gap-2 px-4 pt-4", className)}>
-      <div className={cn("rounded-torn border-3 border-ink px-5 py-3 shadow-pop", bg)}>
-        <p className={cn("font-display text-2xl uppercase leading-none tracking-tight", text)}>
+      <div
+        className={cn("rounded-torn border-3 border-ink px-5 py-3 shadow-pop", bg)}
+        style={color === "rainbow" ? { backgroundImage: RAINBOW_GRADIENT } : undefined}
+      >
+        <p
+          className={cn("font-display text-2xl uppercase leading-none tracking-tight", text)}
+          style={color === "rainbow" ? { textShadow: "0 1px 3px rgba(0,0,0,0.55)" } : undefined}
+        >
           {title}
         </p>
       </div>

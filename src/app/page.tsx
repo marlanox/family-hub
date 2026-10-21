@@ -50,7 +50,7 @@ export default function HomePage() {
         <HeaderBanner
           title="Наша семья"
           tag="Вместе лучше 🙂"
-          color="turquoise"
+          color="rainbow"
           action={
             <div className="flex gap-2">
               <Link
