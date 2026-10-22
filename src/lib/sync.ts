@@ -114,8 +114,9 @@ function rowToTask(row: Record<string, unknown>): Task {
     assignee: row.assignee as Task["assignee"],
     creatorId: (row.creator_id as string | null) ?? "",
     recurrence: row.recurrence as Task["recurrence"],
-    startTime: (row.start_time as string | null) ?? undefined,
-    dueTime: (row.due_time as string | null) ?? undefined,
+    // Postgres `time` comes back as "12:00:00" — hours and minutes only.
+    startTime: (row.start_time as string | null)?.slice(0, 5) ?? undefined,
+    dueTime: (row.due_time as string | null)?.slice(0, 5) ?? undefined,
     onceDate: (row.once_date as string | null) ?? undefined,
     hasDeadline: row.has_deadline as boolean,
     reminderEnabled: row.reminder_enabled as boolean,
@@ -471,6 +472,32 @@ export async function pushActivity(event: ActivityEvent, familyId: string): Prom
   }
 }
 
+function isoDaysAgo(days: number): string {
+  const d = new Date(Date.now() - days * 86400000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Re-marks an occurrence completed on the server without awarding
+ * anything — used to repair rows an old reminder sweep reset to
+ * "pending" after they'd been done (the points were awarded back then).
+ */
+export async function repairCompletedOccurrence(taskId: string, dateISO: string, completedAt: string): Promise<SyncResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
+  try {
+    const { error } = await supabase
+      .from("task_occurrences")
+      .update({ status: "completed", completed_at: completedAt })
+      .eq("task_id", taskId)
+      .eq("scheduled_for", dateISO)
+      .neq("status", "completed");
+    return error ? { ok: false, error: error.message } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function fetchSnapshot(
   familyId: string,
 ): Promise<{ ok: true; snapshot: RemoteSnapshot } | { ok: false; error: string }> {
@@ -482,10 +509,18 @@ export async function fetchSnapshot(
       supabase.from("families").select("*").eq("id", familyId).maybeSingle(),
       supabase.from("family_members").select("*").eq("family_id", familyId),
       supabase.from("tasks").select("*").eq("family_id", familyId),
+      // Recent weeks only, newest first. Unbounded, this hit the API's
+      // 1000-row cap once the history grew, and whichever rows got cut —
+      // often today's "completed" ones — made done tasks look undone
+      // again (and re-ticking them earned nothing: the server already
+      // had them completed, so the points snapped back).
       supabase
         .from("task_occurrences")
         .select("*, tasks!inner(family_id)")
-        .eq("tasks.family_id", familyId),
+        .eq("tasks.family_id", familyId)
+        .gte("scheduled_for", isoDaysAgo(21))
+        .order("scheduled_for", { ascending: false })
+        .limit(1000),
       supabase.from("family_activity").select("*").eq("family_id", familyId).order("created_at", { ascending: false }).limit(200),
       supabase.from("user_badges").select("*, family_members!inner(family_id)").eq("family_members.family_id", familyId),
       supabase.from("family_reward_history").select("*").eq("family_id", familyId).order("tier", { ascending: false }),

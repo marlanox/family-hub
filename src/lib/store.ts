@@ -18,6 +18,7 @@ import {
   pushRefuse,
   pushSnooze,
   pushTask,
+  repairCompletedOccurrence,
   wipeAllCloudFamilies,
   type RemoteSnapshot,
 } from "./sync";
@@ -379,6 +380,7 @@ function mergeRewardHistory(
 }
 
 interface MergeResult {
+  repairs: Repair[];
   members: FamilyMember[];
   tasks: Task[];
   occurrences: Record<string, OccurrenceRecord>;
@@ -390,6 +392,37 @@ interface MergeResult {
   familyRewardHistory: FamilyRewardHistoryEntry[];
   knownRemoteMemberIds: string[];
   knownRemoteTaskIds: string[];
+}
+
+// An old version of the reminder sweep reset already-completed
+// occurrences on the server back to "pending". The activity log still
+// says who completed what and when, so trust it: any task_completed
+// event from the last three weeks marks that day's occurrence completed
+// here, and is reported so the server row can be repaired too (no
+// points — those were awarded when it was really done).
+type Repair = { taskId: string; dateISO: string; completedAt: string };
+function healFromActivity(
+  occurrences: Record<string, OccurrenceRecord>,
+  activity: ActivityEvent[],
+  remote: Record<string, OccurrenceRecord>,
+): { occurrences: Record<string, OccurrenceRecord>; repairs: Repair[] } {
+  const cutoff = Date.now() - 21 * 86400000;
+  const healed = { ...occurrences };
+  const repairs: Repair[] = [];
+  for (const e of activity) {
+    if (e.type !== "task_completed" || !e.taskId) continue;
+    const at = new Date(e.createdAt);
+    if (at.getTime() < cutoff) continue;
+    const dateISO = todayISO(at);
+    const key = occurrenceKey(e.taskId, dateISO);
+    if (healed[key]?.status !== "completed") {
+      healed[key] = { ...(healed[key] ?? { remindersSent: 0 }), status: "completed", completedAt: e.createdAt };
+    }
+    if (remote[key] && remote[key].status !== "completed") {
+      repairs.push({ taskId: e.taskId, dateISO, completedAt: e.createdAt });
+    }
+  }
+  return { occurrences: healed, repairs };
 }
 
 function mergeSnapshot(
@@ -423,11 +456,16 @@ function mergeSnapshot(
             familyPoints: Math.max(local.familyPoints, remote.familyPoints),
           };
 
+  const activity = mergeActivity(local.activity, remote.activity);
+  const remoteOcc = remote.occurrences as Record<string, OccurrenceRecord>;
+  const healed = healFromActivity(mergeOccurrences(local.occurrences, remoteOcc), activity, remoteOcc);
+
   return {
     members: mergeMembers(local.members, remote.members, new Set(local.knownRemoteMemberIds), trustLocalScores),
     tasks: mergeTasks(local.tasks, remote.tasks, new Set(local.knownRemoteTaskIds)),
-    occurrences: mergeOccurrences(local.occurrences, remote.occurrences as Record<string, OccurrenceRecord>),
-    activity: mergeActivity(local.activity, remote.activity),
+    occurrences: healed.occurrences,
+    repairs: healed.repairs,
+    activity,
     earnedBadges: mergeBadges(local.earnedBadges, remote.earnedBadges),
     guides: mergeGuides(local.guides, remote.guides),
     familyRewardHistory: mergeRewardHistory(local.familyRewardHistory, remote.familyRewardHistory),
@@ -505,7 +543,8 @@ export const useFamilyStore = create<FamilyHubState>()(
         const state = get();
         const task = state.tasks.find((t) => t.id === taskId);
         if (!task) return;
-        if (!isMyOccurrence(task, state.whoAmI, dateISO)) return;
+        // Anyone may tick a task done from a list (the family asked for
+        // that); refusing and snoozing stay with whoever it's assigned to.
         const key = occurrenceKey(taskId, dateISO);
         if (state.occurrences[key]?.status === "completed") return;
 
@@ -1065,7 +1104,8 @@ export const useFamilyStore = create<FamilyHubState>()(
           return false;
         }
         const state = get();
-        const merged = mergeSnapshot(state, result.snapshot);
+        const { repairs, ...merged } = mergeSnapshot(state, result.snapshot);
+        for (const r of repairs) void repairCompletedOccurrence(r.taskId, r.dateISO, r.completedAt);
 
         // Onboarding forces every fresh device to create a local "me"
         // member before it can even reach Settings to join a family —
@@ -1116,13 +1156,14 @@ export const useFamilyStore = create<FamilyHubState>()(
           return;
         }
         const state = get();
-        const merged = mergeSnapshot(state, result.snapshot);
+        const { repairs, ...merged } = mergeSnapshot(state, result.snapshot);
         set({
           ...merged,
           lastSyncedAt: new Date().toISOString(),
           syncing: false,
           lastSyncError: null,
         });
+        for (const r of repairs) void repairCompletedOccurrence(r.taskId, r.dateISO, r.completedAt);
       },
 
       clearSyncError: () => set({ lastSyncError: null }),

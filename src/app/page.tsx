@@ -9,7 +9,7 @@ import { HeaderBanner } from "@/components/HeaderBanner";
 import { Icon } from "@/components/Icon";
 import { SectionTitle } from "@/components/SectionTitle";
 import { TaskCard } from "@/components/TaskCard";
-import { isMineOn, occurrenceKey, resolveAssigneeIds, todayISO } from "@/lib/schedule";
+import { occurrenceKey, resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { useFamilyStore } from "@/lib/store";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
@@ -76,6 +76,14 @@ export default function HomePage() {
     const time = (t: Task) => t.dueTime ?? t.startTime ?? "99:99";
     return [...todaysTasks].sort((a, b) => Number(done(a)) - Number(done(b)) || time(a).localeCompare(time(b)));
   }, [todaysTasks, occurrences, todayKey]);
+
+  // Every completed occurrence this phone knows about. The per-member
+  // completed_task_count on the server only started counting recently
+  // (it was reset along with the points), so it showed "1".
+  const completedCount = useMemo(
+    () => Object.values(occurrences).filter((o) => o.status === "completed").length,
+    [occurrences],
+  );
 
   const pendingCount = todaysTasks.filter(
     (t) => (occurrences[occurrenceKey(t.id, todayKey)]?.status ?? "pending") !== "completed",
@@ -188,15 +196,11 @@ export default function HomePage() {
                   timeLabel={timeLabel(task)}
                   points={task.points}
                   completed={status === "completed"}
-                  onToggle={
-                    isMineOn(task, whoAmI, todayKey)
-                      ? (e?: React.MouseEvent) => {
-                          e?.preventDefault();
-                          e?.stopPropagation();
-                          if (status !== "completed") completeTask(task.id);
-                        }
-                      : undefined
-                  }
+                  onToggle={(e?: React.MouseEvent) => {
+                    e?.preventDefault();
+                    e?.stopPropagation();
+                    if (status !== "completed") completeTask(task.id);
+                  }}
                 />
               </Link>
             );
@@ -210,11 +214,7 @@ export default function HomePage() {
 
         <div className="flex gap-2.5">
           <BadgeChip emoji="🔥" value={Math.max(...members.map((m) => m.currentStreak), 0)} label="дней подряд" />
-          <BadgeChip
-            emoji="🏆"
-            value={members.reduce((s, m) => s + m.completedTaskCount, 0)}
-            label="задач выполнено"
-          />
+          <BadgeChip emoji="🏆" value={completedCount} label="задач выполнено" />
           <BadgeChip emoji="⭐" value={members.length} label="человек в команде" />
         </div>
       </main>

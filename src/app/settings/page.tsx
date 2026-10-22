@@ -245,7 +245,8 @@ export default function SettingsPage() {
             <input type="checkbox" checked={soundEnabled} onChange={toggleSound} className="h-6 w-6 accent-pink" />
           </label>
           <p className="mb-2 mt-3 px-1 text-xs font-semibold text-ink/50">
-            Выберите звук — он будет использоваться во всём приложении.
+            Выберите звук — он играет внутри приложения: «сделано», награды, кубки. Уведомления айфон всегда
+            проигрывает своим системным звуком, сменить его приложение не может.
           </p>
           <div className="grid grid-cols-2 gap-2">
             {SOUND_THEMES.map((t) => (

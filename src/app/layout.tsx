@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Dela_Gothic_One, Exo_2, Inter, Permanent_Marker, Sedgwick_Ave_Display } from "next/font/google";
+import { Dela_Gothic_One, Inter, Jost, Permanent_Marker, Sedgwick_Ave_Display } from "next/font/google";
 import { AppScroller } from "@/components/AppScroller";
 import { CelebrationToast } from "@/components/CelebrationToast";
 import { IOSActiveFix } from "@/components/IOSActiveFix";
@@ -26,12 +26,11 @@ const body = Inter({
   display: "swap",
 });
 
-// Home title: Exo 2 Black Italic — sharp, slanted, cut-off stroke ends,
-// the closest Cyrillic match to the Ibanez guitar logo the family asked for.
-const punk = Exo_2({
+// Home title: Jost — a clean geometric sans in the spirit of the Chanel
+// wordmark (the family asked for something plain and classy). Cyrillic.
+const punk = Jost({
   subsets: ["latin", "cyrillic"],
-  weight: "900",
-  style: "italic",
+  weight: "600",
   variable: "--font-punk",
   display: "swap",
 });
