@@ -9,10 +9,13 @@
 // Each run: for every family, works out "now" in that family's own
 // timezone, finds tasks due that haven't been dealt with yet today, and
 // sends a push for each (deep-linking straight to the snooze/refuse
-// screen) — deliberately on every sweep, not just once, like a real
-// alarm clock: it keeps nagging every few minutes until the task is
-// completed/refused, or until an active snooze's time hasn't run out
-// yet (that pauses it; once the snooze expires, nagging resumes).
+// screen). Cadence: once at the due time, then at most once an hour
+// while nobody reacts, and no more than MAX_AUTO_REMINDERS a day — it
+// used to fire on every sweep (every few minutes), which piled up dozens
+// of notifications on a phone nobody was looking at. A snooze the person
+// chose ("через 15 минут / час") is always honoured once it runs out.
+// Each reminder carries a per-task tag, so a new one replaces the
+// previous banner instead of stacking.
 //
 // Deploy: paste this file's contents into Supabase Dashboard → Edge
 // Functions → "send-reminders" → the code editor, then Deploy. It reuses
@@ -147,6 +150,9 @@ function shiftDate(dateISO: string, days: number): string {
 // the alarm keeps going forever after "Сделано". So "dealt with today" is
 // judged by the actual moment it happened, against the start of the
 // family's day, across the neighbouring dates too.
+const MAX_AUTO_REMINDERS = 3;
+const REMIND_EVERY_MS = 60 * 60 * 1000;
+
 function isDealtWith(occs: OccurrenceRow[], dateISO: string, dayStartMs: number, nowMs: number): boolean {
   return occs.some((o) => {
     if (o.scheduled_for === dateISO && (o.status === "completed" || o.status === "refused" || o.status === "cancelled")) {
@@ -155,6 +161,9 @@ function isDealtWith(occs: OccurrenceRow[], dateISO: string, dayStartMs: number,
     if (o.status === "completed" && o.completed_at && new Date(o.completed_at).getTime() >= dayStartMs) return true;
     if (o.status === "refused" && o.refused_at && new Date(o.refused_at).getTime() >= dayStartMs) return true;
     if (o.status === "snoozed" && o.snoozed_until && new Date(o.snoozed_until).getTime() > nowMs) return true;
+    // Today's row also uses snoozed_until as "next automatic reminder no
+    // earlier than" (see below), whatever its status.
+    if (o.scheduled_for === dateISO && o.snoozed_until && new Date(o.snoozed_until).getTime() > nowMs) return true;
     return false;
   });
 }
@@ -224,11 +233,12 @@ Deno.serve(async (req: Request) => {
       for (const task of dueTasks) {
         const occs = occsByTask.get(task.id) ?? [];
         const occ = occs.find((o) => o.scheduled_for === dateISO);
-        // Deliberately an alarm clock, not a one-time ping: it keeps
-        // nagging every sweep (every few minutes) until the task is
-        // actually dealt with — completed/refused today, or an active
-        // snooze whose time hasn't run out yet (then it resumes).
+        // Silent when dealt with today (completed/refused), while a snooze
+        // or the hourly wait hasn't run out, and once today's automatic
+        // reminders are used up — unless this is a snooze the person asked
+        // for that just expired: that one always rings.
         if (isDealtWith(occs, dateISO, dayStartMs, nowMs)) continue;
+        if (occ && occ.status !== "snoozed" && (occ.reminders_sent ?? 0) >= MAX_AUTO_REMINDERS) continue;
 
         const targetIds = resolveAssigneeIds(task.assignee, dateISO, allMemberIds);
         if (targetIds.length === 0) continue;
@@ -241,6 +251,7 @@ Deno.serve(async (req: Request) => {
               JSON.stringify({
                 title: `⏰ Пора делать: ${task.title}`,
                 body: task.description || "Отметь, что сделал(а), или перенеси время",
+                tag: `task-${task.id}`,
                 data: { url: `/tasks/remind?id=${task.id}` },
               }),
             );
@@ -253,19 +264,29 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        // Only bump the counter — never write status here. The old upsert
-        // reset status to "pending" every sweep, which could overwrite a
-        // "Сделано" that landed between reading the row and writing it.
+        // Count it and hold the next one off for an hour (snoozed_until
+        // doubles as "not before"). Writes are conditional on the row not
+        // being done, so a "Сделано" that lands mid-sweep is never undone.
+        // An expired user snooze turns back into a plain pending reminder,
+        // so the daily cap applies from here on.
+        const nextAt = new Date(nowMs + REMIND_EVERY_MS).toISOString();
         if (occ) {
           await supabase
             .from("task_occurrences")
-            .update({ reminders_sent: (occ.reminders_sent ?? 0) + 1 })
+            .update({ reminders_sent: (occ.reminders_sent ?? 0) + 1, snoozed_until: nextAt })
             .eq("task_id", task.id)
-            .eq("scheduled_for", dateISO);
+            .eq("scheduled_for", dateISO)
+            .in("status", ["pending", "snoozed", "missed"]);
+          await supabase
+            .from("task_occurrences")
+            .update({ status: "pending" })
+            .eq("task_id", task.id)
+            .eq("scheduled_for", dateISO)
+            .eq("status", "snoozed");
         } else {
           await supabase
             .from("task_occurrences")
-            .insert({ task_id: task.id, scheduled_for: dateISO, status: "pending", reminders_sent: 1 });
+            .insert({ task_id: task.id, scheduled_for: dateISO, status: "pending", reminders_sent: 1, snoozed_until: nextAt });
         }
       }
     }

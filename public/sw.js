@@ -8,7 +8,7 @@
 //      what actually sends these (send-push for "something just
 //      happened", send-reminders for "a task is due now").
 
-const CACHE_NAME = "family-hub-shell-v5";
+const CACHE_NAME = "family-hub-shell-v6";
 // Where a tapped notification leaves "open this task" for the page to
 // pick up (see notificationclick). Kept out of the shell cache cleanup.
 const NAV_CACHE = "family-hub-pending-nav";
@@ -73,6 +73,9 @@ self.addEventListener("push", (event) => {
       }
       return self.registration.showNotification(payload.title ?? "Family Hub", {
         body: payload.body,
+        // Same tag = the new banner replaces the old one for that task
+        // instead of stacking up while the phone sits unattended.
+        ...(payload.tag ? { tag: payload.tag } : {}),
         icon: `${BASE}icons/icon-192.png`,
         badge: `${BASE}icons/icon-192.png`,
         data: payload.data ?? {},
