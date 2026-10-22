@@ -19,6 +19,7 @@ import {
   pushSnooze,
   pushTask,
   repairCompletedOccurrence,
+  syncFamilyTimezone,
   wipeAllCloudFamilies,
   type RemoteSnapshot,
 } from "./sync";
@@ -381,6 +382,7 @@ function mergeRewardHistory(
 
 interface MergeResult {
   repairs: Repair[];
+  healedKeys: string[];
   members: FamilyMember[];
   tasks: Task[];
   occurrences: Record<string, OccurrenceRecord>;
@@ -405,10 +407,11 @@ function healFromActivity(
   occurrences: Record<string, OccurrenceRecord>,
   activity: ActivityEvent[],
   remote: Record<string, OccurrenceRecord>,
-): { occurrences: Record<string, OccurrenceRecord>; repairs: Repair[] } {
+): { occurrences: Record<string, OccurrenceRecord>; repairs: Repair[]; healedKeys: string[] } {
   const cutoff = Date.now() - 21 * 86400000;
   const healed = { ...occurrences };
   const repairs: Repair[] = [];
+  const healedKeys: string[] = [];
   for (const e of activity) {
     if (e.type !== "task_completed" || !e.taskId) continue;
     const at = new Date(e.createdAt);
@@ -416,13 +419,60 @@ function healFromActivity(
     const dateISO = todayISO(at);
     const key = occurrenceKey(e.taskId, dateISO);
     if (healed[key]?.status !== "completed") {
+      healedKeys.push(key);
       healed[key] = { ...(healed[key] ?? { remindersSent: 0 }), status: "completed", completedAt: e.createdAt };
     }
     if (remote[key] && remote[key].status !== "completed") {
       repairs.push({ taskId: e.taskId, dateISO, completedAt: e.createdAt });
     }
   }
-  return { occurrences: healed, repairs };
+  return { occurrences: healed, repairs, healedKeys };
+}
+
+// A tap on "done" sends one request; if the phone was offline or iOS
+// suspended the app mid-request, it never reached the server — the
+// phone showed "done" while the server (and so the reminder sweep)
+// still thought it wasn't, and the alarm kept going for everyone, with
+// nothing ever retrying. Every sync now re-sends recent local
+// completions/refusals the server doesn't have. Completion is
+// idempotent server-side ("alreadyCompleted"), so this can't double
+// points. Throttled per occurrence so a persistent error doesn't spam.
+const lastResend = new Map<string, number>();
+function resendUnsynced(
+  state: { occurrences: Record<string, OccurrenceRecord>; tasks: Task[]; members: FamilyMember[] },
+  remote: Record<string, { status: string }>,
+  code: string,
+  // Healed from the activity log: done for real (points already given),
+  // only the server row was reset — repaired separately, never re-awarded.
+  skip: Set<string>,
+) {
+  const recent = new Set([0, 1, 2].map((d) => todayISO(new Date(Date.now() - d * 86400000))));
+  for (const [key, occ] of Object.entries(state.occurrences)) {
+    if (occ.status !== "completed" && occ.status !== "refused") continue;
+    const sep = key.lastIndexOf("__");
+    const taskId = key.slice(0, sep);
+    const dateISO = key.slice(sep + 2);
+    if (!recent.has(dateISO) || skip.has(key)) continue;
+    if (remote[key]?.status === occ.status) continue;
+    if (Date.now() - (lastResend.get(key) ?? 0) < 2 * 60 * 1000) continue;
+    const task = state.tasks.find((t) => t.id === taskId);
+    if (!task) continue;
+    lastResend.set(key, Date.now());
+    if (occ.status === "completed") {
+      const ids = assigneeMembers(task.assignee, state.members, dateISO).map((m) => m.id);
+      void pushComplete(taskId, dateISO, code, task.points, ids);
+    } else {
+      void pushRefuse(taskId, dateISO, occ.refusalReason);
+    }
+  }
+}
+
+function deviceTimezone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
 }
 
 function mergeSnapshot(
@@ -465,6 +515,7 @@ function mergeSnapshot(
     tasks: mergeTasks(local.tasks, remote.tasks, new Set(local.knownRemoteTaskIds)),
     occurrences: healed.occurrences,
     repairs: healed.repairs,
+    healedKeys: healed.healedKeys,
     activity,
     earnedBadges: mergeBadges(local.earnedBadges, remote.earnedBadges),
     guides: mergeGuides(local.guides, remote.guides),
@@ -1104,8 +1155,10 @@ export const useFamilyStore = create<FamilyHubState>()(
           return false;
         }
         const state = get();
-        const { repairs, ...merged } = mergeSnapshot(state, result.snapshot);
+        const { repairs, healedKeys, ...merged } = mergeSnapshot(state, result.snapshot);
         for (const r of repairs) void repairCompletedOccurrence(r.taskId, r.dateISO, r.completedAt);
+        const tz = deviceTimezone();
+        if (tz && result.snapshot.familyTimezone && tz !== result.snapshot.familyTimezone) void syncFamilyTimezone(trimmed, tz);
 
         // Onboarding forces every fresh device to create a local "me"
         // member before it can even reach Settings to join a family —
@@ -1156,7 +1209,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           return;
         }
         const state = get();
-        const { repairs, ...merged } = mergeSnapshot(state, result.snapshot);
+        const { repairs, healedKeys, ...merged } = mergeSnapshot(state, result.snapshot);
         set({
           ...merged,
           lastSyncedAt: new Date().toISOString(),
@@ -1164,6 +1217,9 @@ export const useFamilyStore = create<FamilyHubState>()(
           lastSyncError: null,
         });
         for (const r of repairs) void repairCompletedOccurrence(r.taskId, r.dateISO, r.completedAt);
+        resendUnsynced(get(), result.snapshot.occurrences, code, new Set(healedKeys));
+        const tz = deviceTimezone();
+        if (tz && result.snapshot.familyTimezone && tz !== result.snapshot.familyTimezone) void syncFamilyTimezone(code, tz);
       },
 
       clearSyncError: () => set({ lastSyncError: null }),

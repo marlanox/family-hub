@@ -16,6 +16,7 @@ import type {
 
 export interface RemoteSnapshot {
   familyName: string;
+  familyTimezone?: string;
   familyPoints: number;
   familyMilestonesUnlocked: number;
   members: FamilyMember[];
@@ -498,6 +499,24 @@ export async function repairCompletedOccurrence(taskId: string, dateISO: string,
   }
 }
 
+/**
+ * The reminder sweep decides what "today" is (and when a task is due)
+ * in the family's timezone, which defaulted to Moscow. Phones record
+ * completions under their own local date, so a family living elsewhere
+ * had "done" recorded on one day and the sweep checking another — and
+ * the alarm kept going. Phones keep it set to where the family is.
+ */
+export async function syncFamilyTimezone(familyId: string, timezone: string): Promise<SyncResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
+  try {
+    const { error } = await supabase.from("families").update({ timezone }).eq("id", familyId);
+    return error ? { ok: false, error: error.message } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function fetchSnapshot(
   familyId: string,
 ): Promise<{ ok: true; snapshot: RemoteSnapshot } | { ok: false; error: string }> {
@@ -552,6 +571,7 @@ export async function fetchSnapshot(
     ok: true,
     snapshot: {
       familyName: familyRes.data.name,
+      familyTimezone: familyRes.data.timezone ?? undefined,
       familyPoints: familyRes.data.family_points_pool,
       familyMilestonesUnlocked: familyRes.data.family_milestones_unlocked,
       members: (membersRes.data ?? []).map(rowToMember),
