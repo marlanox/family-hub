@@ -97,34 +97,30 @@ export default function HomePage() {
       <header>
         <HeaderBanner
           title="Кто главный панкрокер?"
-          action={
-            <div className="flex shrink-0 items-start gap-2">
-              <Link href="/guides" aria-label="Инструкции" className="flex flex-col items-center gap-1">
-                <Facet
-                  kind="gem"
-                  shape={1}
-                  className="h-16 w-16"
-                  fillClassName="flex items-center justify-center"
-                >
-                  <span
-                    className="absolute inset-0"
-                    style={{
-                      backgroundImage:
-                        "conic-gradient(from 20deg, #ff6b6b, #ffd23d, #e6ff00, #4ce0a0, #4fc1ff, #9b7bff, #ff6b6b)",
-                    }}
-                  />
-                  <span className="relative flex h-9 w-9 items-center justify-center border-2 border-ink bg-white">
-                    <Icon name="checklist" className="h-6 w-6" />
-                  </span>
-                </Facet>
-                <span className="border-2 border-ink bg-white px-1.5 text-[9px] font-bold uppercase leading-4">Инструкции</span>
-              </Link>
-              <Link href="/settings" aria-label="Настройки семьи" className="mt-1">
-                <Facet kind="gem" shape={3} className="h-12 w-12" fillClassName="glitter-silver flex items-center justify-center">
-                  <Icon name="settings" className="h-7 w-7" />
-                </Facet>
-              </Link>
-            </div>
+          left={
+            <Link href="/guides" aria-label="Инструкции" className="flex flex-col items-center gap-1">
+              <Facet kind="gem" shape={1} className="h-[4.5rem] w-[4.5rem]" fillClassName="flex items-center justify-center">
+                <span
+                  className="absolute inset-0"
+                  style={{
+                    backgroundImage:
+                      "conic-gradient(from 20deg, #ff6b6b, #ffd23d, #e6ff00, #4ce0a0, #4fc1ff, #9b7bff, #ff6b6b)",
+                  }}
+                />
+                <span className="relative flex h-10 w-10 items-center justify-center border-2 border-ink bg-white">
+                  <Icon name="checklist" className="h-7 w-7" />
+                </span>
+              </Facet>
+              <span className="border-2 border-ink bg-white px-1.5 text-[9px] font-bold uppercase leading-4">Инструкции</span>
+            </Link>
+          }
+          right={
+            <Link href="/settings" aria-label="Настройки семьи" className="flex flex-col items-center gap-1">
+              <Facet kind="gem" shape={3} className="h-[4.5rem] w-[4.5rem]" fillClassName="glitter-silver flex items-center justify-center">
+                <Icon name="settings" className="h-9 w-9" />
+              </Facet>
+              <span className="border-2 border-ink bg-white px-1.5 text-[9px] font-bold uppercase leading-4">Настройки</span>
+            </Link>
           }
         />
       </header>

@@ -90,7 +90,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className={`${display.variable} ${body.variable} ${punk.variable} ${graffiti.variable} ${tag.variable}`}>
-      <body className="paper-texture h-dvh overflow-hidden bg-paper font-body text-ink">
+      <body className="paper-texture bg-paper font-body text-ink">
         <AppScroller>
           <OnboardingGate>{children}</OnboardingGate>
         </AppScroller>

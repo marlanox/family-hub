@@ -22,7 +22,7 @@ export function AppScroller({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   return (
-    <div ref={ref} className="h-dvh overflow-y-auto overscroll-y-contain">
+    <div ref={ref} className="fixed inset-0 overflow-y-auto overscroll-y-contain">
       <div className="mx-auto flex min-h-full max-w-md flex-col bg-paper pt-[env(safe-area-inset-top)]">{children}</div>
     </div>
   );

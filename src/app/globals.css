@@ -11,11 +11,23 @@ html,
 body {
   background-color: #e4e9ef;
   color: #151313;
-  /* The document never scrolls — AppScroller does — so iOS has nothing
-     to rubber-band and the fixed bottom bar can't be dragged around. */
+  /* The document never scrolls — AppScroller (a fixed, full-screen box)
+     does — so iOS has nothing to rubber-band and the fixed bottom bar
+     can't be dragged around. */
   overscroll-behavior: none;
-  height: 100%;
-  overflow: hidden;
+}
+
+/* iOS 26 home-screen app bug (WebKit 301108): with viewport-fit=cover
+   and the translucent status bar, a page no taller than the screen gets
+   a viewport cut short by the status-bar height, so fixed elements end
+   early and a light strip shows under the bottom nav. Making the page
+   at least screen-tall gives it the full viewport back. Capped so it
+   doesn't add scroll where the top inset is 0. (Same fix as
+   frappe-ui#1289.) */
+@media (display-mode: standalone) {
+  html {
+    min-height: min(100lvh, calc(100% + env(safe-area-inset-top)));
+  }
 }
 
 body {

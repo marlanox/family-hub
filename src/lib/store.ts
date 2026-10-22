@@ -893,7 +893,12 @@ export const useFamilyStore = create<FamilyHubState>()(
               ? pushCompleteForMember(task.id, dateISO, state.familyCode, task.points, mine, shared)
               : pushComplete(task.id, dateISO, state.familyCode, task.points, members.map((m) => m.id));
           void pushed.then((r) => {
-            if (!r.ok) set({ lastSyncError: r.error });
+            // Keep showing this phone's optimistic points until a little
+            // after the server has actually taken them — on a slow
+            // connection the trust window could run out first and the
+            // points visibly dropped back for a moment.
+            if (r.ok) set({ lastLocalScoreChangeAt: new Date().toISOString() });
+            else set({ lastSyncError: r.error });
           });
           void notifyFamily(
             state.familyCode,

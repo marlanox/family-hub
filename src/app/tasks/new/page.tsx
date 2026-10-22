@@ -1,5 +1,6 @@
 "use client";
 
+import { BottomNav } from "@/components/BottomNav";
 import { BurstTitle } from "@/components/BurstTitle";
 import { ComicButton } from "@/components/ComicButton";
 import { DifficultySelector } from "@/components/DifficultySelector";
@@ -206,6 +207,7 @@ export default function NewTaskPage() {
             </button>
           </div>
         </main>
+        <BottomNav />
       </>
     );
   }
@@ -418,6 +420,7 @@ export default function NewTaskPage() {
           Создать задачу
         </ComicButton>
       </main>
+      <BottomNav />
     </>
   );
 }

@@ -11,7 +11,10 @@ interface GoalProgressProps {
 // Silver-glitter card; the text sits on white labels because nothing
 // stays readable directly on top of a sparkle texture.
 export function GoalProgress({ title, subtitle, current, target }: GoalProgressProps) {
-  const pct = Math.min(100, Math.round((current / target) * 100));
+  const pct = Math.min(100, (current / target) * 100);
+  // 50 of 5000 is 1% — a 3px sliver that read as "the bar is empty".
+  // Any progress at all shows at least a visible stub.
+  const shown = current > 0 ? Math.max(pct, 6) : 0;
 
   return (
     <Facet shape={3} shadow="md" fillClassName="glitter-silver p-5">
@@ -25,7 +28,13 @@ export function GoalProgress({ title, subtitle, current, target }: GoalProgressP
         </Facet>
       </div>
       <Facet shape={5} shadow="none" className="mt-3 h-6" fillClassName="bg-white">
-        <div className="h-full bg-pink transition-all" style={{ width: `${pct}%` }} />
+        <div
+          className="h-full border-r-3 border-ink transition-all"
+          style={{
+            width: `${shown}%`,
+            backgroundImage: "repeating-linear-gradient(135deg, #9B7BFF 0 8px, #6A45E0 8px 16px)",
+          }}
+        />
       </Facet>
       <Facet shape={4} shadow="none" className="ml-auto mt-2 w-fit" fillClassName="bg-white px-3 py-1">
         <span className="font-display text-xs">
