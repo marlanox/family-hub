@@ -5,10 +5,10 @@ interface HeaderBannerProps {
   action?: ReactNode;
 }
 
-// Home title on a glossy rubber splat: an irregular blob with drips
-// running off the bottom and a few splatter drops around it, lavender
-// with a wet-look highlight. Stretched to fit the text, so it's drawn
-// with preserveAspectRatio="none" — a slightly squashed splat still reads.
+// Home title on a "liquid glass" blob: a smooth organic shape with a
+// soft lavender gradient, a lime glow underneath, a blurred glass
+// highlight and a coloured shadow — no comic outline. Stretched to fit
+// the text (preserveAspectRatio="none"); a squashed blob still reads.
 export function HeaderBanner({ title, action }: HeaderBannerProps) {
   const uid = useId().replace(/[:]/g, "");
 
@@ -16,36 +16,42 @@ export function HeaderBanner({ title, action }: HeaderBannerProps) {
     <div className="flex items-start justify-between gap-2 px-4 pt-4">
       <div className="relative min-w-0 flex-1">
         <svg
-          viewBox="0 0 300 160"
+          viewBox="0 0 300 150"
           preserveAspectRatio="none"
-          className="absolute -inset-x-2 -top-2 h-[calc(100%+1.25rem)] w-[calc(100%+1rem)]"
+          className="absolute -inset-x-2 -top-3 h-[calc(100%+1.25rem)] w-[calc(100%+1rem)] drop-shadow-[0_10px_18px_rgba(106,69,224,0.45)]"
           aria-hidden="true"
         >
           <defs>
-            <linearGradient id={`splat-${uid}`} x1="0%" y1="0%" x2="70%" y2="100%">
-              <stop offset="0%" stopColor="#C8B6FF" />
+            <radialGradient id={`base-${uid}`} cx="30%" cy="25%" r="85%">
+              <stop offset="0%" stopColor="#D9CCFF" />
               <stop offset="45%" stopColor="#9B7BFF" />
               <stop offset="100%" stopColor="#5B36D6" />
-            </linearGradient>
+            </radialGradient>
+            <radialGradient id={`glow-${uid}`} cx="78%" cy="88%" r="45%">
+              <stop offset="0%" stopColor="#D9FF4A" stopOpacity="0.75" />
+              <stop offset="100%" stopColor="#D9FF4A" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id={`pink-${uid}`} cx="12%" cy="80%" r="40%">
+              <stop offset="0%" stopColor="#FF9BD8" stopOpacity="0.55" />
+              <stop offset="100%" stopColor="#FF9BD8" stopOpacity="0" />
+            </radialGradient>
+            <filter id={`blur-${uid}`} x="-20%" y="-50%" width="140%" height="200%">
+              <feGaussianBlur stdDeviation="6" />
+            </filter>
+            <clipPath id={`clip-${uid}`}>
+              <path d={BLOB} />
+            </clipPath>
           </defs>
-          <g fill={`url(#splat-${uid})`} stroke="#151313" strokeWidth="4" strokeLinejoin="round">
-            <path d="M30 40C20 18 60 6 90 14c25-12 60-10 85-2 30-12 80-6 95 16 25 8 28 42 14 60 12 16-4 34-26 30h-8c-2 10 2 28-6 30s-8-16-10-28c-29 6-59 2-84 4-2 12 0 28-9 28s-7-16-9-28c-27 2-62 4-80-4 0 12-2 22-9 22s-5-12-5-24C14 112 4 92 14 76 2 62 10 44 30 40Z" />
-            <circle cx="292" cy="20" r="6" />
-            <circle cx="12" cy="128" r="5" />
-            <circle cx="284" cy="132" r="4" />
-            <circle cx="198" cy="150" r="3.5" />
+          <path d={BLOB} fill={`url(#base-${uid})`} />
+          <g clipPath={`url(#clip-${uid})`}>
+            <rect width="300" height="150" fill={`url(#glow-${uid})`} />
+            <rect width="300" height="150" fill={`url(#pink-${uid})`} />
+            {/* glass highlight along the top edge */}
+            <ellipse cx="120" cy="22" rx="110" ry="16" fill="#fff" opacity="0.55" filter={`url(#blur-${uid})`} />
+            <path d={BLOB} fill="none" stroke="#fff" strokeOpacity="0.6" strokeWidth="2.5" />
           </g>
-          {/* wet-look highlights */}
-          <ellipse cx="70" cy="32" rx="34" ry="9" fill="#fff" opacity="0.55" transform="rotate(-8 70 32)" />
-          <ellipse cx="122" cy="26" rx="8" ry="4" fill="#fff" opacity="0.6" />
-          <path d="M262 46c8 8 10 20 6 30" stroke="#fff" strokeWidth="5" strokeLinecap="round" fill="none" opacity="0.45" />
-          <circle cx="243" cy="140" r="2.5" fill="#fff" opacity="0.7" />
-          <circle cx="139" cy="144" r="2.5" fill="#fff" opacity="0.7" />
         </svg>
-        <p
-          className="relative px-4 pb-9 pt-4 text-center font-punk text-[1.35rem] uppercase leading-[1.15] tracking-[0.14em] text-white"
-          style={{ textShadow: "-1.5px -1.5px 0 #151313, 1.5px -1.5px 0 #151313, -1.5px 1.5px 0 #151313, 1.5px 1.5px 0 #151313, 3px 3px 0 #151313" }}
-        >
+        <p className="relative px-5 pb-8 pt-4 text-center font-punk text-[1.6rem] font-extrabold leading-[1.02] tracking-[-0.03em] text-white [text-shadow:0_2px_12px_rgba(60,20,160,0.45)]">
           {title}
         </p>
       </div>
@@ -53,3 +59,7 @@ export function HeaderBanner({ title, action }: HeaderBannerProps) {
     </div>
   );
 }
+
+// Smooth asymmetric blob — soft lobes, no drips.
+const BLOB =
+  "M38 22C70 2 120 8 158 6c44-2 92 2 118 26 22 20 22 52 14 76-8 26-34 40-70 40-34 0-58-8-92-6-38 2-70 12-100-4C2 124-4 96 6 70 14 48 18 34 38 22Z";

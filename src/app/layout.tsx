@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Dela_Gothic_One, Inter, Jost, Permanent_Marker, Sedgwick_Ave_Display } from "next/font/google";
+import { Dela_Gothic_One, Inter, Permanent_Marker, Sedgwick_Ave_Display, Unbounded } from "next/font/google";
 import { AppScroller } from "@/components/AppScroller";
 import { CelebrationToast } from "@/components/CelebrationToast";
 import { IOSActiveFix } from "@/components/IOSActiveFix";
@@ -26,11 +26,11 @@ const body = Inter({
   display: "swap",
 });
 
-// Home title: Jost — a clean geometric sans in the spirit of the Chanel
-// wordmark (the family asked for something plain and classy). Cyrillic.
-const punk = Jost({
+// Home title: Unbounded — wide, soft, very current display sans that
+// sits on the liquid-glass blob. Cyrillic.
+const punk = Unbounded({
   subsets: ["latin", "cyrillic"],
-  weight: "600",
+  weight: "800",
   variable: "--font-punk",
   display: "swap",
 });
