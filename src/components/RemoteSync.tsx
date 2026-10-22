@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { resyncPushSubscription } from "@/lib/push";
 import { useFamilyStore } from "@/lib/store";
 
 const POLL_MS = 20000;
@@ -16,6 +17,12 @@ export function RemoteSync() {
   const familyCode = useFamilyStore((s) => s.familyCode);
   const hasHydrated = useFamilyStore((s) => s.hasHydrated);
   const pullSync = useFamilyStore((s) => s.pullSync);
+  const whoAmI = useFamilyStore((s) => s.whoAmI);
+
+  useEffect(() => {
+    if (!hasHydrated || !familyCode || !whoAmI) return;
+    void resyncPushSubscription(whoAmI);
+  }, [hasHydrated, familyCode, whoAmI]);
 
   useEffect(() => {
     if (!hasHydrated || !familyCode) return;

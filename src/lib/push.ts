@@ -30,18 +30,41 @@ export async function enablePushForMember(memberId: string): Promise<PushSetupRe
   if (permission !== "granted") return "denied";
 
   try {
-    const registration = await navigator.serviceWorker.ready;
-    let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
-      });
-    }
+    const subscription = await getOrCreateSubscription();
     const ok = await savePushSubscription(memberId, subscription.toJSON());
     return ok ? "subscribed" : "error";
   } catch {
     return "error";
+  }
+}
+
+async function getOrCreateSubscription(): Promise<PushSubscription> {
+  const registration = await navigator.serviceWorker.ready;
+  const existing = await registration.pushManager.getSubscription();
+  if (existing) return existing;
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
+  });
+}
+
+/**
+ * Silently (no prompt) saves this device's subscription against the
+ * current member, if notifications are already allowed. Onboarding asks
+ * for notifications before the device has joined the family cloud, so
+ * that first subscription had nowhere to be saved — and once "who am I"
+ * switches to the real cloud member after joining, it would never be
+ * tied to them otherwise. Upserting by endpoint also re-points a
+ * subscription that was saved under a stale member id.
+ */
+export async function resyncPushSubscription(memberId: string): Promise<void> {
+  if (!pushSupported || !VAPID_PUBLIC_KEY) return;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  try {
+    const subscription = await getOrCreateSubscription();
+    await savePushSubscription(memberId, subscription.toJSON());
+  } catch {
+    // Best-effort; the Settings button is still there as the explicit path.
   }
 }
 

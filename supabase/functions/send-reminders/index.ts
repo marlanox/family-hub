@@ -126,9 +126,37 @@ function resolveAssigneeIds(
 
 interface OccurrenceRow {
   task_id: string;
+  scheduled_for: string;
   status: string;
   snoozed_until: string | null;
+  completed_at: string | null;
+  refused_at: string | null;
   reminders_sent: number;
+}
+
+function shiftDate(dateISO: string, days: number): string {
+  const d = new Date(`${dateISO}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+// Phones record completions/snoozes under their OWN local calendar date,
+// while this sweep works in the family's configured timezone — if those
+// two disagree (wrong timezone in the families table, a phone set to
+// another zone), an exact scheduled_for match misses the completion and
+// the alarm keeps going forever after "Сделано". So "dealt with today" is
+// judged by the actual moment it happened, against the start of the
+// family's day, across the neighbouring dates too.
+function isDealtWith(occs: OccurrenceRow[], dateISO: string, dayStartMs: number, nowMs: number): boolean {
+  return occs.some((o) => {
+    if (o.scheduled_for === dateISO && (o.status === "completed" || o.status === "refused" || o.status === "cancelled")) {
+      return true;
+    }
+    if (o.status === "completed" && o.completed_at && new Date(o.completed_at).getTime() >= dayStartMs) return true;
+    if (o.status === "refused" && o.refused_at && new Date(o.refused_at).getTime() >= dayStartMs) return true;
+    if (o.status === "snoozed" && o.snoozed_until && new Date(o.snoozed_until).getTime() > nowMs) return true;
+    return false;
+  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -166,20 +194,25 @@ Deno.serve(async (req: Request) => {
       // minutes past due_time, which silently broke nagging after ANY
       // snooze — 15 min/1h/3h are all past that cap — so the second
       // reminder a snoozed task was supposed to get just never fired.
-      // The isDone/stillSnoozing check below is what actually silences
-      // a task now: completed/refused, or an unexpired snooze.)
+      // The isDealtWith check below is what actually silences a task
+      // now: completed/refused today, or an unexpired snooze.)
       const dueTasks = ((tasks ?? []) as TaskRow[]).filter((t) => {
         if (!isScheduledToday(t.recurrence, t.once_date, dow, dateISO)) return false;
         return minutesSinceMidnight >= toMinutes(t.due_time);
       });
       if (dueTasks.length === 0) continue;
 
+      const nowMs = Date.now();
+      const dayStartMs = nowMs - (minutesSinceMidnight + 1) * 60000;
       const { data: occRows } = await supabase
         .from("task_occurrences")
-        .select("task_id, status, snoozed_until, reminders_sent")
+        .select("task_id, scheduled_for, status, snoozed_until, completed_at, refused_at, reminders_sent")
         .in("task_id", dueTasks.map((t) => t.id))
-        .eq("scheduled_for", dateISO);
-      const occByTask = new Map(((occRows ?? []) as OccurrenceRow[]).map((o) => [o.task_id, o]));
+        .in("scheduled_for", [shiftDate(dateISO, -1), dateISO, shiftDate(dateISO, 1)]);
+      const occsByTask = new Map<string, OccurrenceRow[]>();
+      for (const o of (occRows ?? []) as OccurrenceRow[]) {
+        occsByTask.set(o.task_id, [...(occsByTask.get(o.task_id) ?? []), o]);
+      }
 
       const { data: familyMembers } = await supabase
         .from("family_members")
@@ -189,17 +222,13 @@ Deno.serve(async (req: Request) => {
       const allMemberIds = (familyMembers ?? []).map((m: { id: string }) => m.id);
 
       for (const task of dueTasks) {
-        const occ = occByTask.get(task.id);
+        const occs = occsByTask.get(task.id) ?? [];
+        const occ = occs.find((o) => o.scheduled_for === dateISO);
         // Deliberately an alarm clock, not a one-time ping: it keeps
         // nagging every sweep (every few minutes) until the task is
-        // actually dealt with, so it's unmistakably different from a
-        // plain "you got a new task" notification. Only two things make
-        // it stop: completed/refused (done), or an active snooze whose
-        // time hasn't run out yet — once that runs out, it resumes.
-        const isDone = occ?.status === "completed" || occ?.status === "refused" || occ?.status === "cancelled";
-        const stillSnoozing =
-          occ?.status === "snoozed" && occ.snoozed_until != null && new Date(occ.snoozed_until).getTime() > Date.now();
-        if (isDone || stillSnoozing) continue;
+        // actually dealt with — completed/refused today, or an active
+        // snooze whose time hasn't run out yet (then it resumes).
+        if (isDealtWith(occs, dateISO, dayStartMs, nowMs)) continue;
 
         const targetIds = resolveAssigneeIds(task.assignee, dateISO, allMemberIds);
         if (targetIds.length === 0) continue;
@@ -224,15 +253,20 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        await supabase.from("task_occurrences").upsert(
-          {
-            task_id: task.id,
-            scheduled_for: dateISO,
-            status: "pending",
-            reminders_sent: (occ?.reminders_sent ?? 0) + 1,
-          },
-          { onConflict: "task_id,scheduled_for" },
-        );
+        // Only bump the counter — never write status here. The old upsert
+        // reset status to "pending" every sweep, which could overwrite a
+        // "Сделано" that landed between reading the row and writing it.
+        if (occ) {
+          await supabase
+            .from("task_occurrences")
+            .update({ reminders_sent: (occ.reminders_sent ?? 0) + 1 })
+            .eq("task_id", task.id)
+            .eq("scheduled_for", dateISO);
+        } else {
+          await supabase
+            .from("task_occurrences")
+            .insert({ task_id: task.id, scheduled_for: dateISO, status: "pending", reminders_sent: 1 });
+        }
       }
     }
 
