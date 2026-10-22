@@ -43,8 +43,8 @@ export function HeaderBanner({ title, action }: HeaderBannerProps) {
           <circle cx="139" cy="144" r="2.5" fill="#fff" opacity="0.7" />
         </svg>
         <p
-          className="relative px-4 pb-9 pt-3 font-punk text-[1.7rem] uppercase leading-[0.95] text-white"
-          style={{ textShadow: "2px 2px 0 #151313, -1px -1px 0 #151313" }}
+          className="relative px-4 pb-9 pt-3 font-punk text-[1.3rem] uppercase leading-[1.05] text-white"
+          style={{ textShadow: "-1.5px -1.5px 0 #151313, 1.5px -1.5px 0 #151313, -1.5px 1.5px 0 #151313, 1.5px 1.5px 0 #151313, 3px 3px 0 #151313" }}
         >
           {title}
         </p>

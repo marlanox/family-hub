@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Dela_Gothic_One, Inter, Permanent_Marker, Rubik_Dirt, Sedgwick_Ave_Display } from "next/font/google";
+import { Dela_Gothic_One, Inter, Permanent_Marker, Rubik_Mono_One, Sedgwick_Ave_Display } from "next/font/google";
 import { CelebrationToast } from "@/components/CelebrationToast";
 import { IOSActiveFix } from "@/components/IOSActiveFix";
 import { OnboardingGate } from "@/components/OnboardingGate";
@@ -25,8 +25,9 @@ const body = Inter({
   display: "swap",
 });
 
-// Home title: distressed, punk-flyer grunge (has Cyrillic).
-const punk = Rubik_Dirt({
+// Home title: wide, heavy gig-poster capitals — loud but easy to read
+// (the distressed Rubik Dirt it replaced was unreadable). Has Cyrillic.
+const punk = Rubik_Mono_One({
   subsets: ["latin", "cyrillic"],
   weight: "400",
   variable: "--font-punk",
