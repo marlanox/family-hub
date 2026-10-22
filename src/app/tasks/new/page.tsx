@@ -8,7 +8,7 @@ import { IconPicker } from "@/components/IconPicker";
 import { CatArt } from "@/components/PetArt";
 import { useFamilyStore } from "@/lib/store";
 import { taskTemplates, type TaskTemplate } from "@/lib/taskTemplates";
-import { taskTileBg } from "@/lib/colors";
+import { TaskTileIcon } from "@/components/TaskCard";
 import { todayISO } from "@/lib/schedule";
 import type { Difficulty, FamilyMember, IconKey, RecurrenceType } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -187,14 +187,7 @@ export default function NewTaskPage() {
                 onClick={() => applyTemplate(t)}
                 className="flex flex-col items-center gap-1.5 rounded-2xl border-3 border-ink bg-white p-3 shadow-pop-sm"
               >
-                <span
-                  className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-xl border-3 border-ink",
-                    taskTileBg[t.color],
-                  )}
-                >
-                  <Icon name={t.icon} className="h-5 w-5" />
-                </span>
+                <TaskTileIcon icon={t.icon} color={t.color} />
                 <span className="text-center text-[11px] font-bold leading-tight">{t.title}</span>
               </button>
             ))}

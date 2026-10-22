@@ -2,7 +2,7 @@ import type { FamilyMember } from "@/lib/types";
 import { accentMap } from "@/lib/colors";
 import { cn } from "@/lib/cn";
 
-const OPTIONS: FamilyMember["accentColor"][] = ["pink", "yellow", "lilac", "sky", "mint", "coral"];
+const OPTIONS: FamilyMember["accentColor"][] = ["pink", "yellow", "lilac", "sky", "mint", "gold"];
 
 export function ColorPicker({
   value,

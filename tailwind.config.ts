@@ -5,12 +5,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        paper: "#F4EFE2",
+        paper: "#E4E9EF",
         ink: "#151313",
+        // Still named "pink" so every existing bg-pink/text-pink keeps
+        // working, but the family asked for no crimson anywhere — this is
+        // now the app's lavender accent (buttons, "+", active tab).
         pink: {
-          DEFAULT: "#FF3D94",
-          soft: "#FFB4CE",
-          deep: "#E01F79",
+          DEFAULT: "#9B7BFF",
+          soft: "#E6DCFF",
+          deep: "#6A45E0",
         },
         yellow: {
           DEFAULT: "#FFE000",
@@ -41,12 +44,20 @@ const config: Config = {
           soft: "#DFFFB0",
         },
         violet: {
-          DEFAULT: "#C9A6FF",
-          soft: "#E9DCFF",
+          DEFAULT: "#DCCBFF",
+          soft: "#EFE7FF",
         },
         gold: {
           DEFAULT: "#FFD23D",
           soft: "#FFE9A8",
+        },
+        silver: {
+          DEFAULT: "#C5CAD2",
+          soft: "#EEF0F3",
+        },
+        lemon: {
+          DEFAULT: "#E6FF00",
+          soft: "#F7FFB3",
         },
       },
       fontFamily: {
@@ -57,7 +68,7 @@ const config: Config = {
         pop: "4px 4px 0 0 #151313",
         "pop-sm": "2px 2px 0 0 #151313",
         "pop-lg": "6px 6px 0 0 #151313",
-        "pop-pink": "4px 4px 0 0 #E01F79",
+        "pop-pink": "4px 4px 0 0 #6A45E0",
       },
       borderWidth: {
         3: "3px",

@@ -23,17 +23,27 @@ export const accentMap: Record<Accent, AccentClasses> = {
   gold: { bg: "glitter-gold", bgSoft: "bg-gold-soft", ring: "ring-gold", text: "text-ink" },
 };
 
-// Task icon tiles get their own, louder palette than member stickers:
-// former pink tiles go pale violet, the rest gold glitter or neon. Mapped
-// at render time so tasks already saved with the old colors change too,
+interface TaskTile {
+  bg: string;
+  /** Card background when a task row is shown "solid" (Plan page). */
+  soft: string;
+  icon: string;
+  /** Busy patterns get a small white plate behind the icon so it stays legible. */
+  plate?: boolean;
+}
+
+// Task icon tiles get their own palette, separate from member stickers:
+// soft lavender instead of pink, plus gold glitter, silver glitter, acid
+// lemon, black-with-white-icon and b/w stripes — and no blue. Mapped at
+// render time so tasks already saved with the old color keys change too,
 // without a data migration.
-export const taskTileBg: Record<Accent, string> = {
-  pink: "bg-violet",
-  violet: "bg-violet",
-  yellow: "glitter-gold",
-  lilac: "glitter-gold",
-  gold: "glitter-gold",
-  mint: "bg-acid",
-  sky: "bg-turquoise",
-  coral: "bg-coral",
+export const taskTile: Record<Accent, TaskTile> = {
+  pink: { bg: "bg-violet", soft: "bg-violet-soft", icon: "text-ink" },
+  violet: { bg: "bg-violet", soft: "bg-violet-soft", icon: "text-ink" },
+  yellow: { bg: "glitter-gold", soft: "bg-gold-soft", icon: "text-ink" },
+  gold: { bg: "glitter-gold", soft: "bg-gold-soft", icon: "text-ink" },
+  lilac: { bg: "glitter-silver", soft: "bg-silver-soft", icon: "text-ink" },
+  mint: { bg: "bg-lemon", soft: "bg-lemon-soft", icon: "text-ink" },
+  sky: { bg: "bg-ink", soft: "bg-white", icon: "text-white" },
+  coral: { bg: "stripes-bw", soft: "bg-white", icon: "text-ink", plate: true },
 };

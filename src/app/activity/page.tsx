@@ -24,7 +24,7 @@ const TONES: Record<ActivityEventType, string> = {
   task_completed: "bg-mint",
   task_refused: "bg-pink-soft",
   task_postponed: "bg-sky-soft",
-  task_missed: "bg-coral-soft",
+  task_missed: "bg-silver-soft",
   points_awarded: "bg-yellow",
   badge_earned: "bg-yellow",
   reward_unlocked: "bg-lilac-soft",

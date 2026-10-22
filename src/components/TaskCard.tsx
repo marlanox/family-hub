@@ -1,7 +1,23 @@
-import { accentMap, taskTileBg } from "@/lib/colors";
+import { taskTile } from "@/lib/colors";
 import type { FamilyMember, IconKey } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { Icon } from "./Icon";
+
+export function TaskTileIcon({ icon, color }: { icon: IconKey; color: FamilyMember["accentColor"] }) {
+  const tile = taskTile[color] ?? taskTile.violet;
+  return (
+    <span
+      className={cn(
+        "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-3 border-ink",
+        tile.bg,
+      )}
+    >
+      <span className={cn(tile.plate && "rounded-md border-2 border-ink bg-white p-0.5")}>
+        <Icon name={icon} className={cn(tile.plate ? "h-4 w-4" : "h-5 w-5", tile.icon)} />
+      </span>
+    </span>
+  );
+}
 
 interface TaskCardProps {
   icon: IconKey;
@@ -26,23 +42,16 @@ export function TaskCard({
   surface = "card",
   onToggle,
 }: TaskCardProps) {
-  const accent = accentMap[color === "pink" ? "violet" : color];
+  const tile = taskTile[color] ?? taskTile.violet;
 
   return (
     <div
       className={cn(
         "flex items-center gap-3 rounded-2xl border-3 border-ink p-3 shadow-pop-sm",
-        surface === "solid" ? accent.bgSoft : "bg-white",
+        surface === "solid" ? tile.soft : "bg-white",
       )}
     >
-      <span
-        className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-3 border-ink",
-          taskTileBg[color],
-        )}
-      >
-        <Icon name={icon} className="h-5 w-5 text-ink" />
-      </span>
+      <TaskTileIcon icon={icon} color={color} />
       <div className="min-w-0 flex-1">
         <p className={cn("truncate font-display text-sm", completed && "line-through opacity-50")}>
           {title}

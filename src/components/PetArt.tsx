@@ -182,8 +182,32 @@ export function CatArt({ className }: PetArtProps) {
           <stop offset="0%" stopColor="#4A362A" />
           <stop offset="100%" stopColor="#2B1E17" />
         </linearGradient>
+        <linearGradient id={`cat-cape-${pointId}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#2e2a35" />
+          <stop offset="55%" stopColor="#151317" />
+          <stop offset="100%" stopColor="#000" />
+        </linearGradient>
       </defs>
       <g filter={`url(#${shadowId})`}>
+        {/* Batman cape, behind everything: anchored at the neck, billowing
+            out wide with a scalloped bat-wing hem, the left side swept lower
+            and further out as if caught mid-flight */}
+        <path
+          d="M38 68C26 70 12 80 1 101Q8 94 14 102Q20 95 27 103Q34 96 41 104L59 104Q66 96 73 103Q80 95 86 102Q92 94 99 98C93 84 79 72 62 68Z"
+          fill={`url(#cat-cape-${pointId})`}
+          stroke="#151313"
+          strokeWidth="3"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M28 77C22 84 16 92 13 100M40 74C36 82 34 92 33 101M64 75C68 83 70 92 71 100M76 78C82 84 86 92 88 99"
+          stroke="#46404f"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          fill="none"
+        />
+        {/* pointed collar standing up behind the head */}
+        <path d="M33 66 22 53l14 7ZM67 66l11-13-14 7Z" fill="#151317" stroke="#151313" strokeWidth="2.5" strokeLinejoin="round" />
         {/* tail, cream with a dark seal tip, swept up in one smooth curl */}
         <path d="M70 98C90 92 97 72 82 62" fill="none" stroke="#151313" strokeWidth="9" strokeLinecap="round" />
         <path d="M70 98C90 92 97 72 82 62" fill="none" stroke={`url(#${creamGrad})`} strokeWidth="6" strokeLinecap="round" />
@@ -224,6 +248,8 @@ export function CatArt({ className }: PetArtProps) {
         <path d="M60 90c3-6 9-8 14-6" fill={`url(#cat-point-${pointId})`} stroke="#151313" strokeWidth="3" strokeLinecap="round" />
         <path d="M74 82l3-3M76 85l3-2M76 88l3 0" stroke="#151313" strokeWidth="1.8" strokeLinecap="round" />
         <path d="M38 96v-6" stroke="#151313" strokeWidth="3" strokeLinecap="round" />
+        {/* gold cape clasp at the throat */}
+        <circle cx="50" cy="73" r="3.8" fill="#FFD23D" stroke="#151313" strokeWidth="2" />
       </g>
     </svg>
   );

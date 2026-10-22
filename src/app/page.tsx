@@ -48,7 +48,7 @@ export default function HomePage() {
     <>
       <header>
         <HeaderBanner
-          title="Наша семья"
+          title="Кто главный панкрокер?"
           tag="Вместе лучше 🙂"
           color="rainbow"
           action={

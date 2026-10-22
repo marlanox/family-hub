@@ -97,7 +97,7 @@ interface FamilyRewardHistoryEntry {
   unlockedAt: string;
 }
 
-const ACCENT_CYCLE: FamilyMember["accentColor"][] = ["pink", "sky", "lilac", "mint", "yellow", "coral"];
+const ACCENT_CYCLE: FamilyMember["accentColor"][] = ["pink", "sky", "lilac", "mint", "yellow", "gold"];
 
 interface FamilyHubState {
   members: FamilyMember[];
