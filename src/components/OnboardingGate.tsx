@@ -121,7 +121,7 @@ function CreateFamily({ onDone }: { onDone: () => void }) {
               {members.map((m) => (
                 <span
                   key={m.id}
-                  className="rounded-full border-3 border-ink bg-white px-3 py-1 font-display text-xs uppercase shadow-pop-sm"
+                  className="border-3 border-ink bg-white px-3 py-1 font-display text-xs uppercase shadow-pop-sm"
                 >
                   {m.displayName}
                 </span>

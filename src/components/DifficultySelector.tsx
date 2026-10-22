@@ -25,7 +25,7 @@ export function DifficultySelector({
           onClick={() => onChange(opt.value, opt.suggested)}
           className={cn(
             "rounded-xl border-3 border-ink py-2 text-center font-display text-[11px] uppercase shadow-pop-sm",
-            value === opt.value ? "bg-mint" : "bg-white",
+            value === opt.value ? "bg-lime" : "bg-white",
           )}
         >
           {opt.label}

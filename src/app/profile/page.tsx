@@ -107,7 +107,7 @@ function ProfileContent() {
                 )}
               </span>
               {m.id === whoAmI && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full border-2 border-ink bg-mint px-1 text-[8px] font-bold uppercase leading-tight">
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full border-2 border-ink bg-lime px-1 text-[8px] font-bold uppercase leading-tight">
                   ты
                 </span>
               )}
@@ -122,7 +122,7 @@ function ProfileContent() {
               onClick={() => fileRef.current?.click()}
               disabled={uploadingPhoto}
               aria-label="Изменить фото"
-              className="absolute -right-1 bottom-6 flex h-8 w-8 items-center justify-center rounded-full border-3 border-ink bg-white shadow-pop-sm"
+              className="absolute -right-1 bottom-6 flex h-8 w-8 items-center justify-center border-3 border-ink bg-white shadow-pop-sm"
             >
               {uploadingPhoto ? "⏳" : "✏️"}
             </button>
@@ -144,7 +144,7 @@ function ProfileContent() {
           <BadgeChip emoji="⭐" value={myBadges.length} label="значков" />
         </div>
 
-        <div className="flex rounded-full border-3 border-ink bg-white p-1 shadow-pop-sm">
+        <div className="flex border-3 border-ink bg-white p-1 shadow-pop-sm">
           {([
             ["tasks", "Мои задачи"],
             ["achievements", "Достижения"],
@@ -153,7 +153,7 @@ function ProfileContent() {
             <button
               key={value}
               onClick={() => setTab(value)}
-              className={`flex-1 rounded-full py-1.5 font-display text-[11px] uppercase ${
+              className={`flex-1 py-1.5 font-display text-[11px] uppercase ${
                 tab === value ? "bg-ink text-white" : "text-ink"
               }`}
             >
@@ -225,7 +225,7 @@ function ProfileContent() {
 function StatRow({ icon, label, value }: { icon: IconKey; label: string; value: string | number }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border-3 border-ink bg-white p-3 shadow-pop-sm">
-      <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink bg-sky-soft">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink bg-violet-soft">
         <Icon name={icon} className="h-4 w-4" />
       </span>
       <p className="flex-1 text-sm font-semibold">{label}</p>

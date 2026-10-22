@@ -60,7 +60,7 @@ export function TaskCard({
           {assigneeLabel} · {timeLabel}
         </p>
       </div>
-      <Facet shape={shapeFor(title) + 3} shadow="none" fillClassName="bg-mint px-2.5 py-1">
+      <Facet shape={shapeFor(title) + 3} shadow="none" fillClassName="bg-lime px-2.5 py-1">
         <span className="font-display text-[11px] leading-none">+{points}</span>
       </Facet>
       <button

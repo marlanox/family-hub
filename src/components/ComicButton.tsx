@@ -10,10 +10,12 @@ interface ComicButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<Variant, string> = {
-  mint: "bg-mint text-ink",
+  // Variant names are historical; colours follow the current palette
+  // (acid lime / lavender / lemon — no sea-green or sky-blue left).
+  mint: "bg-lime text-ink",
   pink: "bg-pink text-white",
-  sky: "bg-sky text-ink",
-  yellow: "bg-yellow text-ink",
+  sky: "bg-violet text-ink",
+  yellow: "bg-lemon text-ink",
   ink: "bg-ink text-white",
   outline: "bg-paper text-ink",
 };

@@ -57,7 +57,7 @@ export default function GuidesPage() {
         <button
           onClick={() => router.back()}
           aria-label="Назад"
-          className="rounded-full border-3 border-ink bg-white p-2 shadow-pop-sm"
+          className="border-3 border-ink bg-white p-2 shadow-pop-sm"
         >
           <Icon name="back" className="h-5 w-5" />
         </button>

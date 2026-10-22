@@ -21,9 +21,23 @@ function timeLabel(task: Task) {
   return "сегодня";
 }
 
+const DOW_SHORT = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+
+function upcomingLabel(task: Task) {
+  if (task.recurrence.type === "once" && task.onceDate) {
+    return new Date(`${task.onceDate}T12:00:00`).toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
+  }
+  if (task.recurrence.type === "custom_days" && task.recurrence.daysOfWeek?.length) {
+    return task.recurrence.daysOfWeek.map((d) => DOW_SHORT[d]).join(", ");
+  }
+  return "не сегодня";
+}
+
 export default function HomePage() {
   const members = useFamilyStore((s) => s.members);
   const todaysTasks = useFamilyStore((s) => s.todaysTasks());
+  const allTasks = useFamilyStore((s) => s.tasks);
+  const whoAmI = useFamilyStore((s) => s.whoAmI);
   const occurrences = useFamilyStore((s) => s.occurrences);
   const completeTask = useFamilyStore((s) => s.completeTask);
   const familyPoints = useFamilyStore((s) => s.familyPoints);
@@ -40,6 +54,21 @@ export default function HomePage() {
     if (ids === "family") return "Всем";
     return ids.map((id) => members.find((m) => m.id === id)?.displayName ?? id).join(", ");
   };
+
+  // Someone assigned me a task that isn't due today (a one-off for later
+  // this week, or days that skip today): it used to be invisible here,
+  // so tapping its "new task" push landed on a Home without it.
+  const assignedToMe = useMemo(() => {
+    if (!whoAmI) return [];
+    const todayIds = new Set(todaysTasks.map((t) => t.id));
+    const weekAgo = Date.now() - 3 * 86400000;
+    return allTasks.filter((t) => {
+      if (todayIds.has(t.id) || t.assignee.kind === "family") return false;
+      if (!t.assignee.memberIds.includes(whoAmI)) return false;
+      if (t.recurrence.type === "once") return !!t.onceDate && t.onceDate > todayKey;
+      return t.creatorId !== whoAmI && new Date(t.createdAt).getTime() > weekAgo;
+    });
+  }, [allTasks, todaysTasks, whoAmI, todayKey]);
 
   const pendingCount = todaysTasks.filter(
     (t) => (occurrences[occurrenceKey(t.id, todayKey)]?.status ?? "pending") !== "completed",
@@ -74,9 +103,7 @@ export default function HomePage() {
               </Link>
               <Link href="/settings" aria-label="Настройки семьи" className="mt-1">
                 <Facet kind="gem" shape={3} className="h-12 w-12" fillClassName="glitter-silver flex items-center justify-center">
-                  <span className="bg-white p-1">
-                    <Icon name="settings" className="h-5 w-5" />
-                  </span>
+                  <Icon name="settings" className="h-7 w-7" />
                 </Facet>
               </Link>
             </div>
@@ -143,11 +170,32 @@ export default function HomePage() {
             );
           })}
           {todaysTasks.length === 0 && (
-            <p className="rounded-2xl border-3 border-dashed border-ink/30 p-4 text-center text-sm font-semibold text-ink/50">
+            <p className="border-3 border-dashed border-ink/30 p-4 text-center text-sm font-semibold text-ink/50">
               На сегодня задач нет — самое время добавить одну!
             </p>
           )}
         </div>
+
+        {assignedToMe.length > 0 && (
+          <>
+            <SectionTitle>Назначено тебе</SectionTitle>
+            <div className="space-y-2.5">
+              {assignedToMe.map((task) => (
+                <Link key={task.id} href={`/tasks/remind?id=${task.id}&reason=assigned`} className="block">
+                  <TaskCard
+                    icon={task.icon}
+                    color={task.color}
+                    title={task.title}
+                    assigneeLabel={`от ${members.find((m) => m.id === task.creatorId)?.displayName ?? "семьи"}`}
+                    timeLabel={upcomingLabel(task)}
+                    points={task.points}
+                    completed={false}
+                  />
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="flex gap-2.5">
           <BadgeChip emoji="🔥" value={Math.max(...members.map((m) => m.currentStreak), 0)} label="дней подряд" />

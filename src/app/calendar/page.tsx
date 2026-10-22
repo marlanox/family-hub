@@ -66,7 +66,7 @@ export default function CalendarPage() {
           <button
             onClick={() => setWeekOffset((w) => w - 1)}
             aria-label="Предыдущая неделя"
-            className="flex h-10 w-10 items-center justify-center rounded-full border-3 border-ink bg-white shadow-pop-sm"
+            className="flex h-10 w-10 items-center justify-center border-3 border-ink bg-white shadow-pop-sm"
           >
             <Icon name="back" className="h-4 w-4" />
           </button>
@@ -76,7 +76,7 @@ export default function CalendarPage() {
           <button
             onClick={() => setWeekOffset((w) => w + 1)}
             aria-label="Следующая неделя"
-            className="flex h-10 w-10 items-center justify-center rounded-full border-3 border-ink bg-white shadow-pop-sm"
+            className="flex h-10 w-10 items-center justify-center border-3 border-ink bg-white shadow-pop-sm"
           >
             <Icon name="back" className="h-4 w-4 rotate-180" />
           </button>
@@ -173,7 +173,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-full border-3 border-ink px-3.5 py-1.5 font-display text-xs uppercase shadow-pop-sm ${
+      className={`shrink-0 border-3 border-ink px-3.5 py-1.5 font-display text-xs uppercase shadow-pop-sm ${
         active ? "bg-ink text-white" : "bg-white text-ink"
       }`}
     >

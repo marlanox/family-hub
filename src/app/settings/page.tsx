@@ -66,7 +66,7 @@ export default function SettingsPage() {
   return (
     <>
       <header className="flex items-center gap-3 px-4 pt-6">
-        <button onClick={() => router.back()} aria-label="Назад" className="rounded-full border-3 border-ink bg-white p-2 shadow-pop-sm">
+        <button onClick={() => router.back()} aria-label="Назад" className="border-3 border-ink bg-white p-2 shadow-pop-sm">
           <Icon name="back" className="h-5 w-5" />
         </button>
         <h1 className="font-display text-xl uppercase">Настройки семьи</h1>
@@ -190,7 +190,7 @@ export default function SettingsPage() {
                   <p className="flex-1 font-semibold">
                     {m.displayName}
                     {m.id === whoAmI && (
-                      <span className="ml-2 rounded-full border-2 border-ink bg-mint px-2 py-0.5 text-[10px] font-bold uppercase">
+                      <span className="ml-2 rounded-full border-2 border-ink bg-lime px-2 py-0.5 text-[10px] font-bold uppercase">
                         это ты
                       </span>
                     )}
@@ -257,7 +257,7 @@ export default function SettingsPage() {
                   playSound("preview", true, t.id);
                 }}
                 className={`flex items-center justify-between rounded-2xl border-3 border-ink px-3 py-2.5 text-left font-semibold shadow-pop-sm transition ${
-                  soundTheme === t.id ? "bg-mint" : "bg-white"
+                  soundTheme === t.id ? "bg-lime" : "bg-white"
                 }`}
               >
                 <span>
@@ -376,7 +376,7 @@ export default function SettingsPage() {
 
           {isSyncAvailable() && !familyCode && (
             <div className="space-y-3">
-              <div className="rounded-2xl border-3 border-ink bg-sky-soft p-3 space-y-2">
+              <div className="rounded-2xl border-3 border-ink bg-violet-soft p-3 space-y-2">
                 <p className="text-xs font-bold">
                   Если код синхронизации у вас уже ЕСТЬ (кто-то в семье его создал) — вставьте его сюда:
                 </p>
@@ -451,7 +451,7 @@ export default function SettingsPage() {
 
           {isSyncAvailable() && familyCode && (
             <div className="space-y-2">
-              <div className="rounded-2xl border-3 border-ink bg-mint p-3 shadow-pop-sm">
+              <div className="rounded-2xl border-3 border-ink bg-lime p-3 shadow-pop-sm">
                 <p className="text-xs font-bold uppercase text-ink/60">Код вашей семьи</p>
                 <p className="mt-1 break-all font-display text-sm">{familyCode}</p>
                 <ComicButton

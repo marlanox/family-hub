@@ -21,9 +21,7 @@ export function GoalProgress({ title, subtitle, current, target }: GoalProgressP
           <p className="mt-0.5 text-sm font-bold text-ink">{subtitle}</p>
         </Facet>
         <Facet kind="gem" shape={2} className="h-12 w-12 shrink-0" fillClassName="glitter-gold flex items-center justify-center">
-          <span className="bg-white p-1">
-            <Icon name="gift" className="h-5 w-5" />
-          </span>
+          <Icon name="gift" className="h-7 w-7" />
         </Facet>
       </div>
       <Facet shape={5} shadow="none" className="mt-3 h-6" fillClassName="bg-white">

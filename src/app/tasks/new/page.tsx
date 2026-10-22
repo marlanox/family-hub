@@ -145,7 +145,7 @@ export default function NewTaskPage() {
       <>
         <header className="flex flex-col items-center gap-3 px-4 pt-6">
           <div className="flex w-full items-center justify-between">
-            <button onClick={() => router.back()} aria-label="Закрыть" className="rounded-full border-3 border-ink bg-white p-2 shadow-pop-sm">
+            <button onClick={() => router.back()} aria-label="Закрыть" className="border-3 border-ink bg-white p-2 shadow-pop-sm">
               <Icon name="close" className="h-5 w-5" />
             </button>
             <span className="w-9" />
@@ -155,26 +155,32 @@ export default function NewTaskPage() {
 
         <main className="flex-1 space-y-4 px-4 pb-8 pt-4">
           <div className="flex items-center justify-center gap-3">
-            <div className="flex shrink-0 flex-col items-center">
+            <div className="relative flex shrink-0 flex-col items-center">
+              <Bat className="absolute -left-3 top-1 h-5 w-8 -rotate-12" />
+              <Bat className="absolute -right-2 -top-1 h-4 w-6 rotate-12" />
+              <Bat className="absolute left-6 -top-3 h-3 w-5 rotate-6" />
+              <Bat className="absolute -right-4 top-14 h-3.5 w-5 -rotate-6" />
               <CatArt className="h-32 w-32 rotate-2" />
-              <span className="-mt-1 rounded-full border-3 border-ink bg-white px-2.5 py-0.5 text-center font-display text-[10px] uppercase leading-tight shadow-pop-sm">
+              <span className="-mt-1 border-3 border-ink bg-white px-2.5 py-0.5 text-center font-display text-[10px] uppercase leading-tight shadow-pop-sm">
                 Макака
                 <br />
                 <span className="text-[8px] normal-case text-ink/50">сиамский кот</span>
               </span>
             </div>
             <span className="rounded-2xl border-3 border-ink bg-white px-3 py-1.5 font-display text-xs shadow-pop-sm rotate-2">
-              Давай, ещё одну задачку!
+              Заставляй других пахать,
+              <br />
+              а сам отдыхай
             </span>
           </div>
 
-          <div className="flex rounded-full border-3 border-ink bg-white p-1 shadow-pop-sm">
-            <span className="flex-1 rounded-full bg-pink py-2 text-center font-display text-xs uppercase text-white">
+          <div className="flex border-3 border-ink bg-white p-1 shadow-pop-sm">
+            <span className="flex-1 bg-pink py-2 text-center font-display text-xs uppercase text-white">
               Шаблоны
             </span>
             <button
               onClick={startCustom}
-              className="flex-1 rounded-full py-2 text-center font-display text-xs uppercase text-ink"
+              className="flex-1 py-2 text-center font-display text-xs uppercase text-ink"
             >
               Своя задача
             </button>
@@ -207,7 +213,7 @@ export default function NewTaskPage() {
   return (
     <>
       <header className="flex items-center gap-3 px-4 pt-6">
-        <button onClick={() => setStep("pick")} aria-label="Назад" className="rounded-full border-3 border-ink bg-white p-2 shadow-pop-sm">
+        <button onClick={() => setStep("pick")} aria-label="Назад" className="border-3 border-ink bg-white p-2 shadow-pop-sm">
           <Icon name="back" className="h-5 w-5" />
         </button>
         <h1 className="font-display text-xl uppercase">Новая задача</h1>
@@ -244,8 +250,8 @@ export default function NewTaskPage() {
                 setAssigneeIds([]);
               }}
               className={cn(
-                "rounded-full border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
-                assignMode === "family" ? "bg-sky" : "bg-white",
+                "border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
+                assignMode === "family" ? "bg-violet" : "bg-white",
               )}
             >
               Всем
@@ -254,8 +260,8 @@ export default function NewTaskPage() {
               type="button"
               onClick={() => setAssignMode("fixed")}
               className={cn(
-                "rounded-full border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
-                assignMode === "fixed" ? "bg-sky" : "bg-white",
+                "border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
+                assignMode === "fixed" ? "bg-violet" : "bg-white",
               )}
             >
               Конкретным
@@ -264,8 +270,8 @@ export default function NewTaskPage() {
               type="button"
               onClick={() => setAssignMode("rotation")}
               className={cn(
-                "rounded-full border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
-                assignMode === "rotation" ? "bg-sky" : "bg-white",
+                "border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
+                assignMode === "rotation" ? "bg-violet" : "bg-white",
               )}
             >
               По очереди
@@ -280,8 +286,8 @@ export default function NewTaskPage() {
                   type="button"
                   onClick={() => toggleAssignee(m.id)}
                   className={cn(
-                    "rounded-full border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
-                    assigneeIds.includes(m.id) ? "bg-sky" : "bg-white",
+                    "border-3 border-ink px-3 py-1.5 font-display text-xs uppercase shadow-pop-sm",
+                    assigneeIds.includes(m.id) ? "bg-violet" : "bg-white",
                   )}
                 >
                   {m.displayName}
@@ -306,7 +312,7 @@ export default function NewTaskPage() {
                 onClick={() => setRecurrence(o.value)}
                 className={cn(
                   "rounded-xl border-3 border-ink py-2.5 text-center font-display text-[11px] uppercase shadow-pop-sm",
-                  recurrence === o.value ? "bg-sky" : "bg-white",
+                  recurrence === o.value ? "bg-violet" : "bg-white",
                 )}
               >
                 {o.label}
@@ -325,7 +331,7 @@ export default function NewTaskPage() {
                   aria-pressed={daysOfWeek.includes(i)}
                   onClick={() => toggleDay(i)}
                   className={cn(
-                    "h-10 w-10 rounded-full border-3 border-ink font-display text-xs shadow-pop-sm",
+                    "h-10 w-10 border-3 border-ink font-display text-xs shadow-pop-sm",
                     daysOfWeek.includes(i) ? "bg-pink text-white" : "bg-white",
                   )}
                 >
@@ -371,7 +377,7 @@ export default function NewTaskPage() {
             <button
               type="button"
               onClick={() => setPoints((p) => Math.max(minPoints, p - 5))}
-              className="flex h-10 w-10 items-center justify-center rounded-full border-3 border-ink bg-white font-display text-lg shadow-pop-sm"
+              className="flex h-10 w-10 items-center justify-center border-3 border-ink bg-white font-display text-lg shadow-pop-sm"
             >
               −
             </button>
@@ -379,7 +385,7 @@ export default function NewTaskPage() {
             <button
               type="button"
               onClick={() => setPoints(effectivePoints + 5)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border-3 border-ink bg-white font-display text-lg shadow-pop-sm"
+              className="flex h-10 w-10 items-center justify-center border-3 border-ink bg-white font-display text-lg shadow-pop-sm"
             >
               +
             </button>
@@ -422,5 +428,17 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <p className="px-1 text-xs font-bold uppercase tracking-wide text-ink/60">{label}</p>
       {children}
     </div>
+  );
+}
+
+// Tiny flying bat that flutters around Макака in her Batman cape.
+function Bat({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 40 20" className={`bat-flap ${className ?? ""}`} aria-hidden>
+      <path
+        d="M20 6c1-2 2-3 2-4 1 1 1 2 1 3 4-3 9-4 17-2-3 2-4 5-4 8-3-2-6-2-8 1-2-1-4 0-5 2-1-1-2-1-3-1s-2 0-3 1c-1-2-3-3-5-2-2-3-5-3-8-1 0-3-1-6-4-8 8-2 13-1 17 2 0-1 0-2 1-3 0 1 1 2 2 4Z"
+        fill="#151313"
+      />
+    </svg>
   );
 }

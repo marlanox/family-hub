@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Unbounded, Inter, Rubik_Spray_Paint, Lobster } from "next/font/google";
+import { Dela_Gothic_One, Inter, Permanent_Marker, Rubik_Dirt, Sedgwick_Ave_Display } from "next/font/google";
 import { CelebrationToast } from "@/components/CelebrationToast";
 import { IOSActiveFix } from "@/components/IOSActiveFix";
 import { OnboardingGate } from "@/components/OnboardingGate";
@@ -8,10 +8,12 @@ import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { StoreHydrator } from "@/components/StoreHydrator";
 import "./globals.css";
 
-// Both support Cyrillic — required since the whole UI is in Russian.
-const display = Unbounded({
+// Display + body both support Cyrillic — required since the whole UI is
+// in Russian. Dela Gothic One: heavy, chunky, slightly cut glyphs that
+// suit the faceted plaques.
+const display = Dela_Gothic_One({
   subsets: ["latin", "cyrillic"],
-  weight: ["700", "800", "900"],
+  weight: "400",
   variable: "--font-display",
   display: "swap",
 });
@@ -23,19 +25,28 @@ const body = Inter({
   display: "swap",
 });
 
-// Street/scrapbook styling on secondary screens (Rewards): a spray-paint
-// graffiti face and a retro pin-up script — both with Cyrillic.
-const graffiti = Rubik_Spray_Paint({
+// Home title: distressed, punk-flyer grunge (has Cyrillic).
+const punk = Rubik_Dirt({
   subsets: ["latin", "cyrillic"],
+  weight: "400",
+  variable: "--font-punk",
+  display: "swap",
+});
+
+// Street lettering on Rewards. Both Latin-only on purpose — that screen's
+// graffiti is written in English: a real NYC-style graffiti hand and a
+// marker tag.
+const graffiti = Sedgwick_Ave_Display({
+  subsets: ["latin"],
   weight: "400",
   variable: "--font-graffiti",
   display: "swap",
 });
 
-const pinup = Lobster({
-  subsets: ["latin", "cyrillic"],
+const tag = Permanent_Marker({
+  subsets: ["latin"],
   weight: "400",
-  variable: "--font-pinup",
+  variable: "--font-tag",
   display: "swap",
 });
 
@@ -76,7 +87,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" className={`${display.variable} ${body.variable} ${graffiti.variable} ${pinup.variable}`}>
+    <html lang="ru" className={`${display.variable} ${body.variable} ${punk.variable} ${graffiti.variable} ${tag.variable}`}>
       <body className="paper-texture min-h-dvh bg-paper font-body text-ink">
         <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-paper pt-[env(safe-area-inset-top)]">
           <OnboardingGate>{children}</OnboardingGate>

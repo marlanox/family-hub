@@ -8,7 +8,7 @@ interface BurstTitleProps {
 
 /** Spiky comic-burst page title, e.g. "ДОБАВИТЬ ЗАДАЧУ", "РЕЙТИНГ". */
 export function BurstTitle({ children, color = "yellow", className }: BurstTitleProps) {
-  const bg = color === "yellow" ? "bg-yellow" : color === "pink" ? "bg-pink" : "bg-sky";
+  const bg = color === "yellow" ? "bg-yellow" : color === "pink" ? "bg-pink" : "bg-violet";
   const text = color === "pink" ? "text-white" : "text-ink";
 
   return (

@@ -8,10 +8,10 @@ interface PointsBadgeProps {
 }
 
 const toneClasses: Record<NonNullable<PointsBadgeProps["tone"]>, string> = {
-  mint: "bg-mint text-ink",
+  mint: "bg-lime text-ink",
   yellow: "bg-yellow text-ink",
   pink: "bg-pink text-white",
-  sky: "bg-sky text-ink",
+  sky: "bg-violet text-ink",
   ink: "bg-ink text-white",
 };
 

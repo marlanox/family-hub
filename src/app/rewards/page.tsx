@@ -1,6 +1,7 @@
 "use client";
 
 import { BottomNav } from "@/components/BottomNav";
+import { Facet, facetClipPath, shapeFor } from "@/components/Facet";
 import { GoalProgress } from "@/components/GoalProgress";
 import { Icon } from "@/components/Icon";
 import { LeaderboardRow } from "@/components/LeaderboardRow";
@@ -24,44 +25,47 @@ export default function RewardsPage() {
     <>
       <header className="flex flex-col items-center gap-3 px-4 pt-6">
         {/* graffiti tag sprayed on a black-and-white brick wall */}
-        <div className="brick-wall relative w-full -rotate-1 overflow-hidden rounded-xl border-3 border-ink px-4 pb-7 pt-4 shadow-pop">
-          <h1 className="spray-tag text-center font-graffiti text-5xl leading-none">РЕЙТИНГ</h1>
-          <span className="paint-drip" style={{ left: "24%", top: "62%", height: 18 }} />
-          <span className="paint-drip" style={{ left: "47%", top: "64%", height: 26 }} />
-          <span className="paint-drip" style={{ left: "71%", top: "62%", height: 14 }} />
-          <span className="absolute bottom-1.5 right-3 rotate-[-6deg] font-graffiti text-sm text-lemon">ПАНК НЕ УМЕР</span>
-        </div>
+        <Facet shape={2} shadow="md" className="w-full -rotate-1" fillClassName="brick-wall relative px-4 pb-8 pt-5">
+          <h1 className="spray-tag text-center font-graffiti text-[2.9rem] leading-none">Hall of Fame</h1>
+          <span className="paint-drip" style={{ left: "22%", top: "60%", height: 18 }} />
+          <span className="paint-drip" style={{ left: "49%", top: "62%", height: 26 }} />
+          <span className="paint-drip" style={{ left: "74%", top: "60%", height: 14 }} />
+          <span className="absolute bottom-2 right-4 rotate-[-7deg] font-tag text-base text-lemon">keep it real</span>
+        </Facet>
         {/* pin-up ribbon on b/w polka dots */}
-        <p className="polka-bw rotate-1 rounded-full border-3 border-ink px-1 py-1 shadow-pop-sm">
-          <span className="block rounded-full bg-white px-4 py-1 text-center font-pinup text-lg leading-tight">
-            Кто сегодня королева, а кто — ленивый лев?
-          </span>
-        </p>
+        <Facet shape={5} className="rotate-1" fillClassName="polka-bw p-1.5">
+          <Facet shape={1} shadow="none" fillClassName="bg-white px-4 py-1.5 text-center">
+            <span className="font-display text-sm uppercase leading-tight">
+              Если ты думаешь, что ты Snoop Dogg — веди себя как Snoop Dogg
+            </span>
+          </Facet>
+        </Facet>
       </header>
 
       <main className="flex-1 space-y-5 px-4 pb-6 pt-4">
         <div className="flex items-center justify-center gap-2">
           <CapybaraArt className="h-36 w-36 shrink-0 -rotate-2" />
-          <span className="scrap-tape rotate-3 border-3 border-ink bg-white px-3 py-2 font-pinup text-lg leading-tight shadow-pop-sm">
-            Поднапрягись,
-            <br />
-            рок-н-ролльщик!
-          </span>
+          <Facet shape={4} className="scrap-tape rotate-3" fillClassName="bg-white px-4 py-2.5">
+            <span className="font-display text-sm uppercase leading-tight">
+              Поднапрягись,
+              <br />
+              рок-н-ролльщик!
+            </span>
+          </Facet>
         </div>
 
-        <div className="flex rounded-full border-3 border-ink bg-white p-1 shadow-pop-sm">
-          {(["week", "month", "all"] as const).map((p) => (
+        <Facet shape={0} fillClassName="flex gap-1 bg-white p-1.5">
+          {(["week", "month", "all"] as const).map((p, i) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`flex-1 rounded-full py-1.5 font-display text-xs uppercase ${
-                period === p ? "bg-ink text-white" : "text-ink"
-              }`}
+              className={`flex-1 py-2 font-display text-xs uppercase ${period === p ? "bg-ink text-white" : "text-ink"}`}
+              style={period === p ? { clipPath: facetClipPath(i + 1) } : undefined}
             >
               {p === "week" ? "Неделя" : p === "month" ? "Месяц" : "Всё время"}
             </button>
           ))}
-        </div>
+        </Facet>
         {period !== "all" && (
           <p className="-mt-3 px-1 text-center text-[11px] font-semibold text-ink/40">
             Пока считаем только за всё время — разбивка по неделям скоро появится
@@ -82,21 +86,19 @@ export default function RewardsPage() {
         />
 
         <div>
-          <h2 className="mb-2 px-1 font-pinup text-2xl">★ Личные кубки ★</h2>
+          <h2 className="mb-2 px-1 font-display text-lg uppercase">★ Личные кубки</h2>
           <div className="space-y-2">
             {members.map((m) => {
               const count = earnedBadges.filter((b) => b.memberId === m.id && b.badgeId.startsWith("points-")).length;
               return (
-                <Link
-                  key={m.id}
-                  href={`/profile?member=${m.id}`}
-                  className="flex items-center gap-3 rounded-2xl border-3 border-ink bg-white p-3 shadow-pop-sm"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink bg-yellow">
-                    <Icon name="trophy" className="h-4 w-4" />
-                  </span>
-                  <p className="flex-1 font-display text-sm">{m.displayName}</p>
-                  <p className="font-display text-sm">×{count}</p>
+                <Link key={m.id} href={`/profile?member=${m.id}`} className="block">
+                  <Facet shape={shapeFor(m.id) + 1} fillClassName="flex items-center gap-3 bg-white px-4 py-3">
+                    <Facet kind="gem" shape={shapeFor(m.id)} shadow="none" className="h-10 w-10 shrink-0" fillClassName="glitter-gold flex items-center justify-center">
+                      <Icon name="trophy" className="h-5 w-5" />
+                    </Facet>
+                    <p className="flex-1 font-display text-sm uppercase">{m.displayName}</p>
+                    <p className="font-display text-sm">×{count}</p>
+                  </Facet>
                 </Link>
               );
             })}
@@ -108,7 +110,7 @@ export default function RewardsPage() {
 
         {familyRewardHistory.length > 0 && (
           <div>
-            <h2 className="mb-2 px-1 font-pinup text-2xl">★ История семейных наград ★</h2>
+            <h2 className="mb-2 px-1 font-display text-lg uppercase">★ История семейных наград</h2>
             <div className="space-y-2">
               {familyRewardHistory.map((r) => (
                 <div key={r.tier} className="flex items-center justify-between rounded-xl border-2 border-ink/20 bg-white px-3 py-2">
@@ -124,7 +126,7 @@ export default function RewardsPage() {
 
         <Link
           href="/activity"
-          className="flex items-center justify-center gap-1 rounded-full border-3 border-ink bg-white py-2.5 font-display text-xs uppercase shadow-pop-sm"
+          className="flex items-center justify-center gap-1 border-3 border-ink bg-white py-2.5 font-display text-xs uppercase shadow-pop-sm"
         >
           Вся активность семьи <span aria-hidden>→</span>
         </Link>

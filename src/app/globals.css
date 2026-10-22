@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --font-display: "Unbounded", system-ui, sans-serif;
+  --font-display: "Dela Gothic One", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
 }
 
@@ -11,6 +11,8 @@ html,
 body {
   background-color: #e4e9ef;
   color: #151313;
+  /* No iOS rubber-band bounce dragging the fixed bottom bar around. */
+  overscroll-behavior: none;
 }
 
 body {
@@ -18,8 +20,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Dela Gothic One ships a single (already heavy) weight — anything bolder
+   would just be the browser smearing a fake bold. */
 .font-display {
-  font-weight: 800;
+  font-weight: 400;
 }
 
 /* Torn-paper / grain texture sitting over the warm paper background. */
@@ -215,4 +219,17 @@ body {
     4% 58%, 13% 45%, 0% 38%, 11% 29%, 7% 15%,
     22% 20%, 26% 6%, 39% 14%
   );
+}
+
+/* Little bats around the caped cat on "add task": a lazy wing flutter. */
+@keyframes bat-flap {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-3px) scaleY(0.6); }
+}
+.bat-flap > path {
+  transform-origin: center;
+  animation: bat-flap 0.9s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bat-flap > path { animation: none; }
 }

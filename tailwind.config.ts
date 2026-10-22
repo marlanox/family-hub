@@ -59,12 +59,18 @@ const config: Config = {
           DEFAULT: "#E6FF00",
           soft: "#F7FFB3",
         },
+        // Light acid lemon-lime — "done" in Activity and the +points badges.
+        lime: {
+          DEFAULT: "#D9FF4A",
+          soft: "#EFFFB0",
+        },
       },
       fontFamily: {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         body: ["var(--font-body)", "system-ui", "sans-serif"],
+        punk: ["var(--font-punk)", "var(--font-display)", "sans-serif"],
         graffiti: ["var(--font-graffiti)", "var(--font-display)", "sans-serif"],
-        pinup: ["var(--font-pinup)", "cursive"],
+        tag: ["var(--font-tag)", "var(--font-display)", "sans-serif"],
       },
       boxShadow: {
         pop: "4px 4px 0 0 #151313",

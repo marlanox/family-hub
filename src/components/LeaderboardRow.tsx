@@ -25,17 +25,16 @@ export function LeaderboardRow({ rank, member }: LeaderboardRowProps) {
       <Facet kind="gem" shape={rank} shadow="none" className="h-9 w-9 shrink-0" fillClassName="flex items-center justify-center bg-ink font-graffiti text-lg text-white">
         {rank === 1 ? "👑" : rank}
       </Facet>
-      <Facet kind="gem" shape={rank + 2} shadow="none" className="h-12 w-12 shrink-0" fillClassName={cn("flex items-center justify-center p-2", placeBg)}>
+      {/* A photo fills the whole gem; only a letter avatar shows the place color. */}
+      <Facet kind="gem" shape={rank + 2} shadow="none" className="h-12 w-12 shrink-0" fillClassName={cn("flex items-center justify-center", !member.photoUrl && placeBg)}>
         {member.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={member.photoUrl} alt="" className="h-full w-full object-cover" />
         ) : (
-          <span className="flex h-full w-full items-center justify-center bg-white font-display text-base text-ink">
-            {member.displayName.charAt(0)}
-          </span>
+          <span className="font-display text-lg text-ink">{member.displayName.charAt(0)}</span>
         )}
       </Facet>
-      <p className="flex-1 font-pinup text-xl leading-none">{member.displayName}</p>
+      <p className="flex-1 font-display text-base uppercase leading-none">{member.displayName}</p>
       <p className="font-graffiti text-2xl leading-none">{member.points}</p>
     </Facet>
   );

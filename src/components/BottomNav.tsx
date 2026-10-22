@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { Facet } from "./Facet";
 import { Icon } from "./Icon";
 import type { IconKey } from "@/lib/types";
 
@@ -25,28 +26,37 @@ function stripTrailingSlash(path: string): string {
 export function BottomNav() {
   const pathname = stripTrailingSlash(usePathname());
 
+  // Fixed to the viewport, not sticky inside the page: with iOS rubber-band
+  // scrolling a sticky bar travelled up with the bounce and the page showed
+  // through underneath it. The in-flow spacer keeps the last content from
+  // ending up hidden behind the bar.
   return (
-    <nav className="sticky bottom-0 z-10 border-t-3 border-ink bg-white px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
-      <div className="relative flex items-center justify-between">
-        {items.slice(0, 2).map((item) => (
-          <NavItem key={item.href} item={item} active={pathname === item.href} />
-        ))}
+    <>
+      <div className="h-[calc(4.75rem+env(safe-area-inset-bottom))] shrink-0" aria-hidden />
+      <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md border-t-3 border-ink bg-white px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+        <div className="relative flex items-center justify-between">
+          {items.slice(0, 2).map((item) => (
+            <NavItem key={item.href} item={item} active={pathname === item.href} />
+          ))}
 
-        <Link
-          href="/tasks/new"
-          aria-label="Добавить задачу"
-          className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-3 border-ink bg-pink text-white shadow-pop"
-        >
-          <Icon name="plus" className="h-7 w-7" />
-        </Link>
+          <Link
+            href="/tasks/new"
+            aria-label="Добавить задачу"
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+          >
+            <Facet kind="gem" shape={2} shadow="md" className="h-14 w-14" fillClassName="flex items-center justify-center bg-pink text-white">
+              <Icon name="plus" className="h-7 w-7" />
+            </Facet>
+          </Link>
 
-        <span className="w-14" aria-hidden />
+          <span className="w-14" aria-hidden />
 
-        {items.slice(2).map((item) => (
-          <NavItem key={item.href} item={item} active={pathname === item.href} />
-        ))}
-      </div>
-    </nav>
+          {items.slice(2).map((item) => (
+            <NavItem key={item.href} item={item} active={pathname === item.href} />
+          ))}
+        </div>
+      </nav>
+    </>
   );
 }
 

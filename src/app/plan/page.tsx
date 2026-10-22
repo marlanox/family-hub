@@ -54,7 +54,7 @@ export default function PlanPage() {
           <Link
             href="/calendar"
             aria-label="Открыть календарь"
-            className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-yellow shadow-pop-sm"
+            className="flex h-11 w-11 items-center justify-center border-3 border-ink bg-yellow shadow-pop-sm"
           >
             <Icon name="calendar" className="h-5 w-5" />
           </Link>
@@ -125,7 +125,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-full border-3 border-ink px-3.5 py-1.5 font-display text-xs uppercase shadow-pop-sm ${
+      className={`shrink-0 border-3 border-ink px-3.5 py-1.5 font-display text-xs uppercase shadow-pop-sm ${
         active ? "bg-ink text-white" : "bg-white text-ink"
       }`}
     >
