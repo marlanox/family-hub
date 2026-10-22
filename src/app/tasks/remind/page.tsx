@@ -79,7 +79,10 @@ function TaskReminderContent() {
   // on today's schedule — e.g. a one-off for tomorrow. That's a heads-up,
   // not an alarm: show the calm "assigned" screen instead.
   const isDueToday = !!task && isScheduledOn(task, new Date(`${todayKey}T12:00:00`));
-  const showAssignedView = isFreshlyAssigned || !isDueToday;
+  // Only a task for another day gets the calm "задача для тебя" screen;
+  // anything due today — even opened from the "new task" push — gets the
+  // full screen with "через 15 минут / час / 3 часа".
+  const showAssignedView = !isDueToday;
   // Already answered today (done or "не буду") — on a shared task that's
   // this person's own answer, even while others still owe theirs.
   const myStatus = task ? taskStatusFor(task, occurrences[occurrenceKey(task.id, todayKey)], whoAmI, members, todayKey) : "pending";
@@ -90,7 +93,7 @@ function TaskReminderContent() {
   // used to loop for as long as the screen stayed open, and the same
   // screen also opened from an ordinary tap on your own task, so the app
   // could beep endlessly just from being opened.
-  const isUrgentScreen = !!task && isMineToday && !showAssignedView && !confirmingRefuse && !openedFromApp && !alreadyAnswered;
+  const isUrgentScreen = !!task && isMineToday && !showAssignedView && !confirmingRefuse && !openedFromApp && !alreadyAnswered && !isFreshlyAssigned;
   useEffect(() => {
     if (!isUrgentScreen) return;
     playSound("urgentAlarm", soundEnabled, soundTheme);
@@ -309,7 +312,9 @@ function TaskReminderContent() {
         </Facet>
       </div>
 
-      <p className="mt-6 text-sm font-bold uppercase tracking-widest text-white/50">Пора делать задачу!</p>
+      <p className="mt-6 text-sm font-bold uppercase tracking-widest text-white/50">
+        {isFreshlyAssigned ? "Новая задача для тебя" : "Пора делать задачу!"}
+      </p>
       <h1 className="mt-2 font-display text-4xl uppercase leading-tight">{task.title}</h1>
       <p className="mt-2 font-semibold text-white/70">{names}, пора это сделать!</p>
       {creatorName && <p className="mt-1 text-xs font-semibold text-white/40">От: {creatorName}</p>}

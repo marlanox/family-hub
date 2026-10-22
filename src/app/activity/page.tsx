@@ -5,7 +5,8 @@ import { Facet, shapeFor } from "@/components/Facet";
 import { Icon } from "@/components/Icon";
 import { creditedMemberIds } from "@/lib/stats";
 import { useFamilyStore } from "@/lib/store";
-import { humanizeActivity, relativeTime } from "@/lib/time";
+import { humanizeActivity } from "@/lib/grammar";
+import { relativeTime } from "@/lib/time";
 import type { ActivityEventType, IconKey } from "@/lib/types";
 import Link from "next/link";
 

@@ -30,6 +30,7 @@ import {
 } from "./sync";
 import { setCustomSupabase } from "./supabaseClient";
 import { creditedMemberIds } from "./stats";
+import { msgAssigned, msgBadge, msgCompleted, msgGuide, msgJoined, msgRefused, msgSnoozed, msgTrophy, msgUndone } from "./grammar";
 import type {
   ActivityEvent,
   Difficulty,
@@ -778,7 +779,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             celebrations.push({
               key: newId("cel"),
               emoji: "🏆",
-              title: `${m.displayName}: кубок за ${tier * 1000} баллов!`,
+              title: msgTrophy(m.displayName, tier * 1000),
               subtitle: "Новый личный рубеж — так держать",
               kind: "badge",
             });
@@ -803,7 +804,7 @@ export const useFamilyStore = create<FamilyHubState>()(
               celebrations.push({
                 key: newId("cel"),
                 emoji: "🌅",
-                title: `${m.displayName}: значок «Ранняя пташка»`,
+                title: msgBadge(m.displayName, "значок «Ранняя пташка»"),
                 subtitle: "Дело сделано с утра",
                 kind: "badge",
               });
@@ -859,7 +860,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           lastLocalScoreChangeAt: now,
         });
 
-        const completedMessage = `${names} — готово: «${task.title}» (+${task.points})`;
+        const completedMessage = msgCompleted(members.map((m) => m.displayName), task.title, ` (+${task.points})`);
         get().logActivity({
           type: "task_completed",
           memberId: members[0]?.id ?? task.creatorId,
@@ -894,7 +895,9 @@ export const useFamilyStore = create<FamilyHubState>()(
           get().logActivity({
             type: "badge_earned",
             memberId: badge.memberId,
-            message: `${owner?.displayName ?? ""}: ${label}`,
+            message: badge.badgeId.startsWith("points-")
+              ? msgTrophy(owner?.displayName ?? "", Number(badge.badgeId.split("-")[1]) * 1000)
+              : msgBadge(owner?.displayName ?? "", label),
           });
           // Trophies and streak badges are written by the server itself;
           // "Ранняя пташка" only exists here, so upload its entry or it
@@ -906,7 +909,7 @@ export const useFamilyStore = create<FamilyHubState>()(
                 familyId: state.familyCode,
                 type: "badge_earned",
                 memberId: badge.memberId,
-                message: `${owner?.displayName ?? ""}: ${label}`,
+                message: msgBadge(owner?.displayName ?? "", label),
                 createdAt: now,
               },
               state.familyCode,
@@ -978,7 +981,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         });
         const names = credited.map((id) => state.members.find((m) => m.id === id)?.displayName ?? "").join(", ");
         const title = event.message.match(/«(.+?)»/)?.[1] ?? "задача";
-        const undoneMessage = `${names} — отменено: «${title}» (−${points})`;
+        const undoneMessage = msgUndone(names.split(", "), title, points);
         set({
           members,
           earnedBadges,
@@ -1042,7 +1045,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           });
         }
 
-        const refusedMessage = `${names} — сегодня не будет: «${task.title}»${reason ? ` (${reason})` : ""}`;
+        const refusedMessage = msgRefused(members.map((m) => m.displayName), task.title, reason ? ` (${reason})` : "");
         get().logActivity({
           type: "task_refused",
           memberId: members[0]?.id ?? task.creatorId,
@@ -1109,7 +1112,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         const members = mine ? state.members.filter((m) => m.id === mine) : assigneeMembers(task.assignee, state.members, dateISO);
         const names = members.map((m) => m.displayName).join(", ");
         const until = hours < 1 ? `${Math.round(hours * 60)} мин` : hours === 1 ? "час" : `${hours} ч`;
-        const snoozedMessage = `${names} — позже: «${task.title}», через ${until}`;
+        const snoozedMessage = msgSnoozed(members.map((m) => m.displayName), task.title, until);
         get().logActivity({
           type: "task_postponed",
           memberId: members[0]?.id ?? task.creatorId,
@@ -1168,7 +1171,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             : input.assignee.kind === "rotation"
               ? `по очереди (${assigneeNames})`
               : assigneeNames;
-        const message = `${creator?.displayName ?? "Кто-то"} → ${assigneeLabel}: новая задача «${task.title}»`;
+        const message = msgAssigned(creator?.displayName ?? "Кто-то", assigneeLabel, task.title);
 
         // Logged locally (and synced below) even without a push
         // notification arriving — so "a task got assigned to me" is
@@ -1233,7 +1236,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         const state = get();
         const editorId = state.whoAmI ?? state.members[0]?.id ?? "";
         const editorName = state.members.find((m) => m.id === editorId)?.displayName ?? "Кто-то";
-        const message = `${editorName} — новая инструкция «${trimmedTitle}»`;
+        const message = msgGuide("added", editorName, trimmedTitle);
         get().logActivity({ type: "guide_updated", memberId: editorId, message });
 
         const code = state.familyCode;
@@ -1272,7 +1275,7 @@ export const useFamilyStore = create<FamilyHubState>()(
 
         const editorId = state.whoAmI ?? state.members[0]?.id ?? "";
         const editorName = state.members.find((m) => m.id === editorId)?.displayName ?? "Кто-то";
-        const message = `${editorName} — правка в инструкции «${updated.title}»`;
+        const message = msgGuide("updated", editorName, updated.title);
         get().logActivity({ type: "guide_updated", memberId: editorId, message });
 
         const code = state.familyCode;
@@ -1310,7 +1313,7 @@ export const useFamilyStore = create<FamilyHubState>()(
 
         const editorId = state.whoAmI ?? state.members[0]?.id ?? "";
         const editorName = state.members.find((m) => m.id === editorId)?.displayName ?? "Кто-то";
-        const message = `${editorName} — инструкция удалена: «${removed.title}»`;
+        const message = msgGuide("deleted", editorName, removed.title);
         get().logActivity({ type: "guide_updated", memberId: editorId, message });
         if (code) {
           void pushActivity(
@@ -1333,7 +1336,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         get().logActivity({
           type: "member_joined",
           memberId: member.id,
-          message: `${name} — теперь в семье`,
+          message: msgJoined(name),
         });
         playSound("created", get().soundEnabled, get().soundTheme);
         const code = get().familyCode;
