@@ -40,6 +40,14 @@ const config: Config = {
           DEFAULT: "#9CFF2E",
           soft: "#DFFFB0",
         },
+        violet: {
+          DEFAULT: "#C9A6FF",
+          soft: "#E9DCFF",
+        },
+        gold: {
+          DEFAULT: "#FFD23D",
+          soft: "#FFE9A8",
+        },
       },
       fontFamily: {
         display: ["var(--font-display)", "system-ui", "sans-serif"],

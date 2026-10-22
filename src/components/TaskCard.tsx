@@ -1,4 +1,4 @@
-import { accentMap } from "@/lib/colors";
+import { accentMap, taskTileBg } from "@/lib/colors";
 import type { FamilyMember, IconKey } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { Icon } from "./Icon";
@@ -26,7 +26,7 @@ export function TaskCard({
   surface = "card",
   onToggle,
 }: TaskCardProps) {
-  const accent = accentMap[color];
+  const accent = accentMap[color === "pink" ? "violet" : color];
 
   return (
     <div
@@ -38,7 +38,7 @@ export function TaskCard({
       <span
         className={cn(
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-3 border-ink",
-          accent.bg,
+          taskTileBg[color],
         )}
       >
         <Icon name={icon} className="h-5 w-5 text-ink" />

@@ -12,7 +12,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
-export type PushSetupResult = "subscribed" | "denied" | "unsupported" | "error";
+export type PushSetupResult = "subscribed" | "denied" | "unsupported" | "no-key" | "error";
 
 /**
  * Only ever called from a button tap (see docs/ARCHITECTURE.md
@@ -20,7 +20,11 @@ export type PushSetupResult = "subscribed" | "denied" | "unsupported" | "error";
  * device for push and saves the subscription against `memberId`.
  */
 export async function enablePushForMember(memberId: string): Promise<PushSetupResult> {
-  if (!pushSupported || !VAPID_PUBLIC_KEY) return "unsupported";
+  if (!pushSupported) return "unsupported";
+  // Reported separately from "unsupported": a build missing this key used
+  // to show "your browser doesn't support notifications" on a perfectly
+  // capable iPhone, which sent debugging in completely the wrong direction.
+  if (!VAPID_PUBLIC_KEY) return "no-key";
 
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return "denied";

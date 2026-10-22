@@ -8,7 +8,7 @@ import { IconPicker } from "@/components/IconPicker";
 import { CatArt } from "@/components/PetArt";
 import { useFamilyStore } from "@/lib/store";
 import { taskTemplates, type TaskTemplate } from "@/lib/taskTemplates";
-import { accentMap } from "@/lib/colors";
+import { taskTileBg } from "@/lib/colors";
 import { todayISO } from "@/lib/schedule";
 import type { Difficulty, FamilyMember, IconKey, RecurrenceType } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -190,7 +190,7 @@ export default function NewTaskPage() {
                 <span
                   className={cn(
                     "flex h-11 w-11 items-center justify-center rounded-xl border-3 border-ink",
-                    accentMap[t.color].bg,
+                    taskTileBg[t.color],
                   )}
                 >
                   <Icon name={t.icon} className="h-5 w-5" />

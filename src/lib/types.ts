@@ -67,7 +67,7 @@ export interface FamilyMember {
   familyId: string;
   displayName: string;
   photoUrl: string | null;
-  accentColor: "pink" | "lilac" | "sky" | "mint" | "yellow" | "coral";
+  accentColor: "pink" | "lilac" | "sky" | "mint" | "yellow" | "coral" | "violet" | "gold";
   points: number;
   currentStreak: number;
   longestStreak: number;
