@@ -3,7 +3,7 @@
 import { BottomNav } from "@/components/BottomNav";
 import { Icon } from "@/components/Icon";
 import { TaskCard } from "@/components/TaskCard";
-import { isScheduledOn, resolveAssigneeIds, todayISO } from "@/lib/schedule";
+import { isMineOn, isScheduledOn, resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { useFamilyStore } from "@/lib/store";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
@@ -38,6 +38,7 @@ function timeLabel(task: Task) {
 
 export default function CalendarPage() {
   const members = useFamilyStore((s) => s.members);
+  const whoAmI = useFamilyStore((s) => s.whoAmI);
   const tasks = useFamilyStore((s) => s.tasks);
   const occurrences = useFamilyStore((s) => s.occurrences);
   const completeTask = useFamilyStore((s) => s.completeTask);
@@ -136,11 +137,15 @@ export default function CalendarPage() {
                           timeLabel={timeLabel(task)}
                           points={task.points}
                           completed={status === "completed"}
-                          onToggle={(e?: React.MouseEvent) => {
-                            e?.preventDefault();
-                            e?.stopPropagation();
-                            if (status !== "completed") completeTask(task.id, dateISO);
-                          }}
+                          onToggle={
+                            isMineOn(task, whoAmI, dateISO)
+                              ? (e?: React.MouseEvent) => {
+                                  e?.preventDefault();
+                                  e?.stopPropagation();
+                                  if (status !== "completed") completeTask(task.id, dateISO);
+                                }
+                              : undefined
+                          }
                         />
                       </Link>
                     );

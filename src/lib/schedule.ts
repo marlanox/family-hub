@@ -60,6 +60,13 @@ function weekIndexFor(dateISO: string): number {
  * occurrence date. Everything but "rotation" is date-independent;
  * "rotation" alternates weekly among its members, one at a time.
  */
+/** Whether `whoAmI` may answer for this task's occurrence on `dateISO`. */
+export function isMineOn(task: Task, whoAmI: string | null, dateISO: string): boolean {
+  if (!whoAmI) return true;
+  const ids = resolveAssigneeIds(task.assignee, dateISO);
+  return ids === "family" || ids.includes(whoAmI);
+}
+
 export function resolveAssigneeIds(assignee: TaskAssignee, dateISO: string): string[] | "family" {
   if (assignee.kind === "family") return "family";
   if (assignee.kind === "member") return assignee.memberIds;

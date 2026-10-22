@@ -11,8 +11,11 @@ html,
 body {
   background-color: #e4e9ef;
   color: #151313;
-  /* No iOS rubber-band bounce dragging the fixed bottom bar around. */
+  /* The document never scrolls — AppScroller does — so iOS has nothing
+     to rubber-band and the fixed bottom bar can't be dragged around. */
   overscroll-behavior: none;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {

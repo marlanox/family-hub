@@ -3,7 +3,7 @@
 import { ComicButton } from "@/components/ComicButton";
 import { ColorPicker } from "@/components/ColorPicker";
 import { Icon } from "@/components/Icon";
-import { playSound, SOUND_THEMES } from "@/lib/sound";
+import { normalizeSoundTheme, playSound, SOUND_THEMES } from "@/lib/sound";
 import { hasBuiltInCloud, isSyncAvailable, usingCustomSupabase, activeSupabaseUrl } from "@/lib/supabaseClient";
 import { notifyFamily, previewFamily } from "@/lib/sync";
 import { enablePushForMember, pushSupported } from "@/lib/push";
@@ -241,7 +241,7 @@ export default function SettingsPage() {
         <section>
           <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Звук</h2>
           <label className="flex items-center justify-between rounded-2xl border-3 border-ink bg-white p-3 shadow-pop-sm">
-            <span className="font-semibold">Весёлые звуки за успехи</span>
+            <span className="font-semibold">Шум и грохот за каждую победу 🤘</span>
             <input type="checkbox" checked={soundEnabled} onChange={toggleSound} className="h-6 w-6 accent-pink" />
           </label>
           <p className="mb-2 mt-3 px-1 text-xs font-semibold text-ink/50">
@@ -256,14 +256,14 @@ export default function SettingsPage() {
                   setSoundTheme(t.id);
                   playSound("preview", true, t.id);
                 }}
-                className={`flex items-center justify-between rounded-2xl border-3 border-ink px-3 py-2.5 text-left font-semibold shadow-pop-sm transition ${
-                  soundTheme === t.id ? "bg-lime" : "bg-white"
+                className={`flex items-center justify-between border-3 border-ink px-3 py-2.5 text-left font-semibold shadow-pop-sm transition ${
+                  normalizeSoundTheme(soundTheme) === t.id ? "bg-lime" : "bg-white"
                 }`}
               >
                 <span>
                   {t.emoji} {t.label}
                 </span>
-                {soundTheme === t.id && <span aria-hidden>✓</span>}
+                {normalizeSoundTheme(soundTheme) === t.id && <span aria-hidden>✓</span>}
               </button>
             ))}
           </div>

@@ -4,7 +4,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { Icon } from "@/components/Icon";
 import { TaskCard } from "@/components/TaskCard";
 import { useFamilyStore } from "@/lib/store";
-import { resolveAssigneeIds, todayISO } from "@/lib/schedule";
+import { isMineOn, resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
 import { useState } from "react";
@@ -23,6 +23,7 @@ const MONTH = [
 
 export default function PlanPage() {
   const members = useFamilyStore((s) => s.members);
+  const whoAmI = useFamilyStore((s) => s.whoAmI);
   const tasks = useFamilyStore((s) => s.todaysTasks());
   const occurrences = useFamilyStore((s) => s.occurrences);
   const completeTask = useFamilyStore((s) => s.completeTask);
@@ -91,11 +92,15 @@ export default function PlanPage() {
                 points={task.points}
                 completed={status === "completed"}
                 surface="solid"
-                onToggle={(e?: React.MouseEvent) => {
-                  e?.preventDefault();
-                  e?.stopPropagation();
-                  if (status !== "completed") completeTask(task.id);
-                }}
+                onToggle={
+                  isMineOn(task, whoAmI, key)
+                    ? (e?: React.MouseEvent) => {
+                        e?.preventDefault();
+                        e?.stopPropagation();
+                        if (status !== "completed") completeTask(task.id);
+                      }
+                    : undefined
+                }
               />
             </Link>
           );

@@ -558,5 +558,7 @@ export async function previewFamily(
 ): Promise<{ ok: true; memberNames: string[] } | { ok: false; error: string }> {
   const result = await fetchSnapshot(familyId);
   if (!result.ok) return result;
-  return { ok: true, memberNames: result.snapshot.members.map((m) => m.displayName) };
+  // Removed members stay in the table as tombstones (deleted_at) — they
+  // must not show up in "в этой семье: …" when someone joins by code.
+  return { ok: true, memberNames: result.snapshot.members.filter((m) => !m.deletedAt).map((m) => m.displayName) };
 }

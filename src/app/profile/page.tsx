@@ -6,7 +6,7 @@ import { FamilyMemberSticker } from "@/components/FamilyMemberSticker";
 import { Icon } from "@/components/Icon";
 import { TaskCard } from "@/components/TaskCard";
 import { accentMap } from "@/lib/colors";
-import { resolveAssigneeIds, todayISO } from "@/lib/schedule";
+import { isMineOn, resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { useFamilyStore } from "@/lib/store";
 import { uploadPhoto } from "@/lib/sync";
 import type { IconKey } from "@/lib/types";
@@ -176,7 +176,7 @@ function ProfileContent() {
                   timeLabel={t.dueTime ? `до ${t.dueTime}` : "сегодня"}
                   points={t.points}
                   completed={status === "completed"}
-                  onToggle={() => status !== "completed" && completeTask(t.id)}
+                  onToggle={isMineOn(t, whoAmI, key) ? () => status !== "completed" && completeTask(t.id) : undefined}
                 />
               );
             })}

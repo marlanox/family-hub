@@ -9,7 +9,7 @@ import { HeaderBanner } from "@/components/HeaderBanner";
 import { Icon } from "@/components/Icon";
 import { SectionTitle } from "@/components/SectionTitle";
 import { TaskCard } from "@/components/TaskCard";
-import { occurrenceKey, resolveAssigneeIds, todayISO } from "@/lib/schedule";
+import { isMineOn, occurrenceKey, resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { useFamilyStore } from "@/lib/store";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
@@ -70,6 +70,13 @@ export default function HomePage() {
     });
   }, [allTasks, todaysTasks, whoAmI, todayKey]);
 
+  // Still-to-do first (soonest deadline on top), done ones sink down.
+  const sortedToday = useMemo(() => {
+    const done = (t: Task) => (occurrences[occurrenceKey(t.id, todayKey)]?.status ?? "pending") === "completed";
+    const time = (t: Task) => t.dueTime ?? t.startTime ?? "99:99";
+    return [...todaysTasks].sort((a, b) => Number(done(a)) - Number(done(b)) || time(a).localeCompare(time(b)));
+  }, [todaysTasks, occurrences, todayKey]);
+
   const pendingCount = todaysTasks.filter(
     (t) => (occurrences[occurrenceKey(t.id, todayKey)]?.status ?? "pending") !== "completed",
   ).length;
@@ -123,6 +130,27 @@ export default function HomePage() {
           Нажмите на себя, чтобы добавить фото ✏️
         </p>
 
+        {assignedToMe.length > 0 && (
+          <>
+            <SectionTitle>Назначено тебе</SectionTitle>
+            <div className="space-y-2.5">
+              {assignedToMe.map((task) => (
+                <Link key={task.id} href={`/tasks/remind?id=${task.id}&reason=assigned`} className="block">
+                  <TaskCard
+                    icon={task.icon}
+                    color={task.color}
+                    title={task.title}
+                    assigneeLabel={`от ${members.find((m) => m.id === task.creatorId)?.displayName ?? "семьи"}`}
+                    timeLabel={upcomingLabel(task)}
+                    points={task.points}
+                    completed={false}
+                  />
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+
         <GoalProgress
           title="Семейная цель"
           subtitle={`5000 баллов = ${rewardName}`}
@@ -146,7 +174,7 @@ export default function HomePage() {
         </SectionTitle>
 
         <div className="space-y-2.5">
-          {todaysTasks.map((task) => {
+          {sortedToday.map((task) => {
             const key = occurrenceKey(task.id, todayKey);
             const status = occurrences[key]?.status ?? "pending";
             if (status === "refused") return null;
@@ -160,11 +188,15 @@ export default function HomePage() {
                   timeLabel={timeLabel(task)}
                   points={task.points}
                   completed={status === "completed"}
-                  onToggle={(e?: React.MouseEvent) => {
-                    e?.preventDefault();
-                    e?.stopPropagation();
-                    if (status !== "completed") completeTask(task.id);
-                  }}
+                  onToggle={
+                    isMineOn(task, whoAmI, todayKey)
+                      ? (e?: React.MouseEvent) => {
+                          e?.preventDefault();
+                          e?.stopPropagation();
+                          if (status !== "completed") completeTask(task.id);
+                        }
+                      : undefined
+                  }
                 />
               </Link>
             );
@@ -175,27 +207,6 @@ export default function HomePage() {
             </p>
           )}
         </div>
-
-        {assignedToMe.length > 0 && (
-          <>
-            <SectionTitle>Назначено тебе</SectionTitle>
-            <div className="space-y-2.5">
-              {assignedToMe.map((task) => (
-                <Link key={task.id} href={`/tasks/remind?id=${task.id}&reason=assigned`} className="block">
-                  <TaskCard
-                    icon={task.icon}
-                    color={task.color}
-                    title={task.title}
-                    assigneeLabel={`от ${members.find((m) => m.id === task.creatorId)?.displayName ?? "семьи"}`}
-                    timeLabel={upcomingLabel(task)}
-                    points={task.points}
-                    completed={false}
-                  />
-                </Link>
-              ))}
-            </div>
-          </>
-        )}
 
         <div className="flex gap-2.5">
           <BadgeChip emoji="🔥" value={Math.max(...members.map((m) => m.currentStreak), 0)} label="дней подряд" />

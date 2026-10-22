@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { isScheduledOn, occurrenceKey, resolveAssigneeIds, todayISO } from "./schedule";
-import { playSound, type SoundTheme } from "./sound";
+import { DEFAULT_SOUND_THEME, playSound, type SoundTheme } from "./sound";
 import {
   createRemoteFamily,
   deleteRemoteGuide,
@@ -178,6 +178,14 @@ function assigneeMembers(assignee: TaskAssignee, members: FamilyMember[], dateIS
   const ids = resolveAssigneeIds(assignee, dateISO);
   if (ids === "family") return members;
   return members.filter((m) => ids.includes(m.id));
+}
+
+// Whether this phone's person may answer for this occurrence. A phone
+// that hasn't said who it is yet (whoAmI null) is not blocked.
+function isMyOccurrence(task: Task, whoAmI: string | null, dateISO: string): boolean {
+  if (!whoAmI) return true;
+  const ids = resolveAssigneeIds(task.assignee, dateISO);
+  return ids === "family" || ids.includes(whoAmI);
 }
 
 // The full named pool this task concerns, ignoring whose turn it is —
@@ -456,7 +464,7 @@ export const useFamilyStore = create<FamilyHubState>()(
     (set, get) => ({
       ...EMPTY_STATE,
       soundEnabled: true,
-      soundTheme: "xylophone",
+      soundTheme: DEFAULT_SOUND_THEME,
       hasHydrated: false,
       lastCelebration: null,
       syncing: false,
@@ -497,6 +505,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         const state = get();
         const task = state.tasks.find((t) => t.id === taskId);
         if (!task) return;
+        if (!isMyOccurrence(task, state.whoAmI, dateISO)) return;
         const key = occurrenceKey(taskId, dateISO);
         if (state.occurrences[key]?.status === "completed") return;
 
@@ -679,6 +688,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         const state = get();
         const task = state.tasks.find((t) => t.id === taskId);
         if (!task) return;
+        if (!isMyOccurrence(task, state.whoAmI, dateISO)) return;
         const key = occurrenceKey(taskId, dateISO);
         const members = assigneeMembers(task.assignee, state.members, dateISO);
         const names = members.map((m) => m.displayName).join(", ");
@@ -729,6 +739,7 @@ export const useFamilyStore = create<FamilyHubState>()(
       snoozeTask: (taskId, hours, dateISO = todayISO()) => {
         const state = get();
         const task = state.tasks.find((t) => t.id === taskId);
+        if (task && !isMyOccurrence(task, state.whoAmI, dateISO)) return;
         const key = occurrenceKey(taskId, dateISO);
         const current = state.occurrences[key];
         const snoozedUntil = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
@@ -830,11 +841,14 @@ export const useFamilyStore = create<FamilyHubState>()(
               if (!r2.ok) set({ lastSyncError: r2.error });
             });
           });
-          // Unlike completing/refusing/postponing, the creator gets this
-          // one too — they explicitly asked to see "new task" land on
-          // their own phone as well, including a task assigned to
-          // themselves or to the whole family.
-          void notifyFamily(code, [], "🆕 Новая задача", message, `/tasks/remind?id=${task.id}&reason=assigned`).then((r) => {
+          // "New task" goes to whoever it's for, plus its creator (who
+          // asked to see it land on their own phone too) — not to the
+          // rest of the family, who read it as a task for them.
+          const recipients = new Set(
+            task.assignee.kind === "family" ? state.members.map((m) => m.id) : [...task.assignee.memberIds, input.creatorId],
+          );
+          const exclude = get().members.map((m) => m.id).filter((mid) => !recipients.has(mid));
+          void notifyFamily(code, exclude, "🆕 Новая задача", message, `/tasks/remind?id=${task.id}&reason=assigned`).then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
         }

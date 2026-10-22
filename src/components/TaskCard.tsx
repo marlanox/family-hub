@@ -68,9 +68,13 @@ export function TaskCard({
         onClick={onToggle}
         aria-pressed={completed}
         aria-label={completed ? "Задача выполнена" : "Отметить выполненной"}
+        // No onToggle = not this person's task: faded, and the tap falls
+        // through to the card's link (which explains whose it is).
+        aria-disabled={!onToggle && !completed}
         className={cn(
           "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-ink",
           completed ? "bg-ink text-white" : "bg-white",
+          !onToggle && !completed && "opacity-25",
         )}
       >
         {completed && (

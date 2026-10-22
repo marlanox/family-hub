@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Dela_Gothic_One, Inter, Permanent_Marker, Rubik_Mono_One, Sedgwick_Ave_Display } from "next/font/google";
+import { Dela_Gothic_One, Exo_2, Inter, Permanent_Marker, Sedgwick_Ave_Display } from "next/font/google";
+import { AppScroller } from "@/components/AppScroller";
 import { CelebrationToast } from "@/components/CelebrationToast";
 import { IOSActiveFix } from "@/components/IOSActiveFix";
 import { OnboardingGate } from "@/components/OnboardingGate";
@@ -25,11 +26,12 @@ const body = Inter({
   display: "swap",
 });
 
-// Home title: wide, heavy gig-poster capitals — loud but easy to read
-// (the distressed Rubik Dirt it replaced was unreadable). Has Cyrillic.
-const punk = Rubik_Mono_One({
+// Home title: Exo 2 Black Italic — sharp, slanted, cut-off stroke ends,
+// the closest Cyrillic match to the Ibanez guitar logo the family asked for.
+const punk = Exo_2({
   subsets: ["latin", "cyrillic"],
-  weight: "400",
+  weight: "900",
+  style: "italic",
   variable: "--font-punk",
   display: "swap",
 });
@@ -89,10 +91,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className={`${display.variable} ${body.variable} ${punk.variable} ${graffiti.variable} ${tag.variable}`}>
-      <body className="paper-texture min-h-dvh bg-paper font-body text-ink">
-        <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-paper pt-[env(safe-area-inset-top)]">
+      <body className="paper-texture h-dvh overflow-hidden bg-paper font-body text-ink">
+        <AppScroller>
           <OnboardingGate>{children}</OnboardingGate>
-        </div>
+        </AppScroller>
         <CelebrationToast />
         <IOSActiveFix />
         <ServiceWorkerRegister />
