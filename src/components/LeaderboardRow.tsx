@@ -1,35 +1,42 @@
-import { accentMap } from "@/lib/colors";
 import type { FamilyMember } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { Facet } from "./Facet";
 
 interface LeaderboardRowProps {
   rank: number;
   member: FamilyMember;
 }
 
+// Avatar color by place, podium-style, so two people never share a color
+// on this screen even if their own accent colors happen to match.
+const PLACE_BG = ["glitter-gold", "glitter-silver", "bg-violet", "bg-lemon", "bg-ink text-white", "stripes-bw"];
+
+// Scrapbook cutout: white paper, a strip of tape on top, a slight tilt
+// that alternates row to row, black-and-white rank stamp.
 export function LeaderboardRow({ rank, member }: LeaderboardRowProps) {
-  const accent = accentMap[member.accentColor];
+  const placeBg = PLACE_BG[(rank - 1) % PLACE_BG.length];
 
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 rounded-2xl border-3 border-ink p-3 shadow-pop-sm",
-        accent.bgSoft,
-      )}
+    <Facet
+      shape={rank + 1}
+      className={cn("scrap-tape", rank % 2 === 1 ? "-rotate-1" : "rotate-1")}
+      fillClassName="flex items-center gap-3 bg-white px-4 py-3"
     >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-white font-display text-sm">
+      <Facet kind="gem" shape={rank} shadow="none" className="h-9 w-9 shrink-0" fillClassName="flex items-center justify-center bg-ink font-graffiti text-lg text-white">
         {rank === 1 ? "👑" : rank}
-      </span>
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-ink bg-white">
+      </Facet>
+      <Facet kind="gem" shape={rank + 2} shadow="none" className="h-12 w-12 shrink-0" fillClassName={cn("flex items-center justify-center p-2", placeBg)}>
         {member.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={member.photoUrl} alt="" className="h-full w-full object-cover" />
         ) : (
-          <span className="font-display text-base">{member.displayName.charAt(0)}</span>
+          <span className="flex h-full w-full items-center justify-center bg-white font-display text-base text-ink">
+            {member.displayName.charAt(0)}
+          </span>
         )}
-      </div>
-      <p className="flex-1 font-display text-sm uppercase">{member.displayName}</p>
-      <p className="font-display text-lg">{member.points}</p>
-    </div>
+      </Facet>
+      <p className="flex-1 font-pinup text-xl leading-none">{member.displayName}</p>
+      <p className="font-graffiti text-2xl leading-none">{member.points}</p>
+    </Facet>
   );
 }

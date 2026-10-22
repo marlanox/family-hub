@@ -2,6 +2,7 @@
 
 import { BadgeChip } from "@/components/BadgeChip";
 import { BottomNav } from "@/components/BottomNav";
+import { Facet } from "@/components/Facet";
 import { FamilyMemberSticker } from "@/components/FamilyMemberSticker";
 import { GoalProgress } from "@/components/GoalProgress";
 import { HeaderBanner } from "@/components/HeaderBanner";
@@ -49,23 +50,34 @@ export default function HomePage() {
       <header>
         <HeaderBanner
           title="Кто главный панкрокер?"
-          tag="Вместе лучше 🙂"
-          color="rainbow"
           action={
-            <div className="flex gap-2">
-              <Link
-                href="/guides"
-                aria-label="Инструкции"
-                className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-acid shadow-pop-sm"
-              >
-                <Icon name="checklist" className="h-5 w-5" />
+            <div className="flex shrink-0 items-start gap-2">
+              <Link href="/guides" aria-label="Инструкции" className="flex flex-col items-center gap-1">
+                <Facet
+                  kind="gem"
+                  shape={1}
+                  className="h-16 w-16"
+                  fillClassName="flex items-center justify-center"
+                >
+                  <span
+                    className="absolute inset-0"
+                    style={{
+                      backgroundImage:
+                        "conic-gradient(from 20deg, #ff6b6b, #ffd23d, #e6ff00, #4ce0a0, #4fc1ff, #9b7bff, #ff6b6b)",
+                    }}
+                  />
+                  <span className="relative flex h-9 w-9 items-center justify-center border-2 border-ink bg-white">
+                    <Icon name="checklist" className="h-6 w-6" />
+                  </span>
+                </Facet>
+                <span className="border-2 border-ink bg-white px-1.5 text-[9px] font-bold uppercase leading-4">Инструкции</span>
               </Link>
-              <Link
-                href="/settings"
-                aria-label="Настройки семьи"
-                className="flex h-11 w-11 items-center justify-center rounded-full border-3 border-ink bg-acid shadow-pop-sm"
-              >
-                <Icon name="settings" className="h-5 w-5" />
+              <Link href="/settings" aria-label="Настройки семьи" className="mt-1">
+                <Facet kind="gem" shape={3} className="h-12 w-12" fillClassName="glitter-silver flex items-center justify-center">
+                  <span className="bg-white p-1">
+                    <Icon name="settings" className="h-5 w-5" />
+                  </span>
+                </Facet>
               </Link>
             </div>
           }

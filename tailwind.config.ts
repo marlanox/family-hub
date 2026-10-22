@@ -63,6 +63,8 @@ const config: Config = {
       fontFamily: {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         body: ["var(--font-body)", "system-ui", "sans-serif"],
+        graffiti: ["var(--font-graffiti)", "var(--font-display)", "sans-serif"],
+        pinup: ["var(--font-pinup)", "cursive"],
       },
       boxShadow: {
         pop: "4px 4px 0 0 #151313",
@@ -82,10 +84,23 @@ const config: Config = {
       backgroundSize: {
         halftone: "10px 10px",
       },
-      borderRadius: {
-        blob: "42% 58% 55% 45% / 45% 42% 58% 55%",
-        sticker: "1.75rem",
-      },
+    },
+    // No rounded rectangles anywhere: the family wanted sharp, hand-cut
+    // shapes. Main plaques are faceted polygons (components/Facet.tsx);
+    // everything else just gets square corners. `full` stays so tiny dots
+    // and checkboxes are still circles.
+    borderRadius: {
+      none: "0",
+      sm: "0",
+      DEFAULT: "0",
+      md: "0",
+      lg: "0",
+      xl: "0",
+      "2xl": "0",
+      "3xl": "0",
+      sticker: "0",
+      blob: "0",
+      full: "9999px",
     },
   },
   plugins: [],

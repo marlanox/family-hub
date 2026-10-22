@@ -34,64 +34,76 @@ function useToyShading(prefix: string, from: string, to: string) {
   };
 }
 
-/** Tough purple street dog — shades, spiked collar, crossed arms, smug fanged smirk. */
-export function DogArt({ className }: PetArtProps) {
-  const { gradId, shadowId, defs } = useToyShading("dog", "#6B3FA0", "#B79CFF");
+/**
+ * Streetwear capybara — the chill internet-favourite mascot: black
+ * hoodie with white drawstrings, gold chain, black shades, and the
+ * classic citrus balanced on its head (acid lemon, to match the app).
+ */
+export function CapybaraArt({ className }: PetArtProps) {
+  const { gradId, shadowId, defs } = useToyShading("capy", "#8A5A2B", "#C99761");
+  const uid = useId().replace(/[:]/g, "");
   return (
     <svg viewBox="0 0 100 110" className={className} aria-hidden="true">
       {defs}
+      <defs>
+        <linearGradient id={`capy-hoodie-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#34303b" />
+          <stop offset="100%" stopColor="#0c0b0e" />
+        </linearGradient>
+        <linearGradient id={`capy-gold-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FFF1A8" />
+          <stop offset="45%" stopColor="#FFD23D" />
+          <stop offset="100%" stopColor="#B07A12" />
+        </linearGradient>
+      </defs>
       <g filter={`url(#${shadowId})`}>
-        {/* small alert ears, not floppy — reads tougher */}
-        <path d="M26 28 14 8l18 10Z" fill={`url(#${gradId})`} stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
-        <path d="M74 28 86 8 68 18Z" fill={`url(#${gradId})`} stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
-        {/* stocky head */}
+        {/* hood up behind the head */}
+        <path d="M17 74C13 36 30 22 50 22s37 14 33 52Z" fill={`url(#capy-hoodie-${uid})`} stroke="#151313" strokeWidth="3" strokeLinejoin="round" />
+        {/* little round ears */}
+        <circle cx="31" cy="25" r="5" fill={`url(#${gradId})`} stroke="#151313" strokeWidth="2.5" />
+        <circle cx="69" cy="25" r="5" fill={`url(#${gradId})`} stroke="#151313" strokeWidth="2.5" />
+        {/* boxy capybara head */}
         <path
-          d="M50 18c17 0 28 12 28 27 0 11-6 18-9 22H31c-3-4-9-11-9-22 0-15 11-27 28-27Z"
+          d="M28 33c0-9 6-13 13-13h18c7 0 13 4 13 13l2 24c0 9-9 12-24 12S26 66 26 57Z"
           fill={`url(#${gradId})`}
           stroke="#151313"
           strokeWidth="3.5"
           strokeLinejoin="round"
         />
-        {/* glossy highlight streak */}
-        <path d="M32 28c4-6 12-10 18-10" stroke="#fff" strokeWidth="4" strokeLinecap="round" opacity="0.35" fill="none" />
-        {/* sunglasses — flat black, one glossy streak, hides the eyes for attitude */}
-        <path
-          d="M27 44h18c1 0 2 1 2 3 0 5-4 8-9 8s-9-3-9-8c0-2 1-3 2-3Z"
-          fill="#151313"
-        />
-        <path
-          d="M53 44h18c1 0 2 1 2 3 0 5-4 8-9 8s-9-3-9-8c0-2 1-3 2-3Z"
-          fill="#151313"
-        />
-        <path d="M45 46h8" stroke="#151313" strokeWidth="3" />
-        <path d="M31 47c2-1 4-1 5 0M57 47c2-1 4-1 5 0" stroke="#fff" strokeWidth="1.6" opacity="0.5" strokeLinecap="round" />
-        {/* smug open smirk with one fang */}
-        <path d="M42 62c4 4 12 4 15-1" stroke="#151313" strokeWidth="3" fill="none" strokeLinecap="round" />
-        <path d="M45 63l1 5 3-4Z" fill="#fff" stroke="#151313" strokeWidth="1.4" strokeLinejoin="round" />
-        {/* thick neck + spiked collar */}
-        <path d="M36 65h28v8H36Z" fill={`url(#${gradId})`} stroke="#151313" strokeWidth="3" />
-        <path d="M34 71h32v6H34Z" fill="#151313" />
-        <circle cx="40" cy="74" r="2" fill="#DCCFFF" />
-        <circle cx="50" cy="74" r="2" fill="#DCCFFF" />
-        <circle cx="60" cy="74" r="2" fill="#DCCFFF" />
-        {/* stocky body */}
-        <path
-          d="M24 108c-1-16 10-24 26-24s27 8 26 24Z"
-          fill={`url(#${gradId})`}
-          stroke="#151313"
-          strokeWidth="3.5"
-          strokeLinejoin="round"
-        />
-        {/* crossed arms */}
-        <path d="M30 92c8 6 16 6 24 0M70 92c-8 6-16 6-24 0" stroke="#151313" strokeWidth="4" fill="none" strokeLinecap="round" />
+        <path d="M33 27c4-3 9-4 14-4" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" opacity="0.35" fill="none" />
+        {/* black shades with a glint */}
+        <path d="M30 37h17v5c0 4-3 6-8 6s-9-2-9-6Z" fill="#151313" />
+        <path d="M53 37h17v5c0 4-4 6-9 6s-8-2-8-6Z" fill="#151313" />
+        <path d="M47 39h6" stroke="#151313" strokeWidth="2.5" />
+        <path d="M33 40l4-2M56 40l4-2" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" opacity="0.7" />
+        {/* big blunt muzzle with nostrils and a tiny content smile */}
+        <ellipse cx="50" cy="58" rx="15" ry="8.5" fill="#7A4E26" stroke="#151313" strokeWidth="2.5" />
+        <ellipse cx="45" cy="56.5" rx="2" ry="1.5" fill="#151313" />
+        <ellipse cx="55" cy="56.5" rx="2" ry="1.5" fill="#151313" />
+        <path d="M46 62c2 1.5 6 1.5 8 0" stroke="#151313" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+        {/* acid-lemon balanced on top, with a leaf */}
+        <ellipse cx="50" cy="13" rx="9.5" ry="7" fill="#E6FF00" stroke="#151313" strokeWidth="2.5" />
+        <path d="M44 11c2-2 5-3 7-3" stroke="#fff" strokeWidth="2" strokeLinecap="round" opacity="0.7" fill="none" />
+        <path d="M51 6c3-5 8-5 10-3-2 3-6 4-10 3Z" fill="#4CE0A0" stroke="#151313" strokeWidth="1.8" strokeLinejoin="round" />
+        {/* hoodie body */}
+        <path d="M18 108c0-23 14-35 32-35s32 12 32 35Z" fill={`url(#capy-hoodie-${uid})`} stroke="#151313" strokeWidth="3.5" strokeLinejoin="round" />
+        <path d="M37 98h26v10" stroke="#46404f" strokeWidth="2" fill="none" strokeLinejoin="round" />
+        {/* white drawstrings */}
+        <path d="M44 74l-2 15M56 74l2 15" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+        <circle cx="42" cy="90" r="1.6" fill="#fff" />
+        <circle cx="58" cy="90" r="1.6" fill="#fff" />
+        {/* gold chain + pendant */}
+        <path d="M33 77Q50 97 67 77" stroke={`url(#capy-gold-${uid})`} strokeWidth="3.2" fill="none" strokeLinecap="round" strokeDasharray="3.2 1.4" />
+        <circle cx="50" cy="91" r="5" fill={`url(#capy-gold-${uid})`} stroke="#151313" strokeWidth="2" />
+        <path d="M50 88l1 2.2 2.4.3-1.8 1.6.5 2.4-2.1-1.2-2.1 1.2.5-2.4-1.8-1.6 2.4-.3Z" fill="#fff" opacity="0.85" />
       </g>
     </svg>
   );
 }
 
 /**
- * Full-rage mode for the refusal screen — a different, much bigger
- * animal from the smug purple dog: dark blood-red, hackles up, jaw wide
+ * Full-rage mode for the refusal screen — a much bigger, angrier
+ * animal than the chill mascots: dark blood-red, hackles up, jaw wide
  * open with a full set of teeth, bloodshot eyes. Meant to read as a
  * genuine "oh no" moment, not a cute mascot.
  */

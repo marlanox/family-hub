@@ -1,6 +1,7 @@
 import { accentMap } from "@/lib/colors";
 import type { FamilyMember } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { Facet, shapeFor } from "./Facet";
 
 interface FamilyMemberStickerProps {
   member: FamilyMember;
@@ -26,12 +27,12 @@ export function FamilyMemberSticker({ member, crown, size = "md", editHint }: Fa
             👑
           </span>
         )}
-        <div
-          className={cn(
-            "blob-shape flex items-center justify-center overflow-hidden border-3 border-ink shadow-pop",
-            accent.bgSoft,
-            dimension,
-          )}
+        <Facet
+          kind="gem"
+          shape={shapeFor(member.id)}
+          shadow="md"
+          className={dimension}
+          fillClassName={cn("flex items-center justify-center", accent.bgSoft)}
         >
           {member.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -45,7 +46,7 @@ export function FamilyMemberSticker({ member, crown, size = "md", editHint }: Fa
               {member.displayName.charAt(0)}
             </span>
           )}
-        </div>
+        </Facet>
         {editHint && (
           <span
             className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink bg-white text-xs shadow-pop-sm"
@@ -55,11 +56,11 @@ export function FamilyMemberSticker({ member, crown, size = "md", editHint }: Fa
           </span>
         )}
       </div>
-      <div className="rounded-2xl border-3 border-ink bg-white px-3 py-1.5 text-center shadow-pop-sm">
+      <Facet shape={shapeFor(member.displayName)} fillClassName="bg-white px-4 py-2 text-center">
         <p className="font-display text-xs uppercase leading-none">{member.displayName}</p>
         <p className="mt-1 font-display text-sm leading-none">{member.points}</p>
         <p className="text-[9px] font-bold uppercase tracking-wide text-ink/50">баллов</p>
-      </div>
+      </Facet>
     </div>
   );
 }

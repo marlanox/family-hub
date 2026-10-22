@@ -107,7 +107,7 @@ export default function CalendarPage() {
             <div key={dateISO} className="overflow-hidden rounded-2xl border-3 border-ink bg-white shadow-pop-sm">
               <button
                 onClick={() => setOpenDay(isOpen ? null : dateISO)}
-                className={`flex w-full items-center gap-3 p-3 text-left ${isToday ? "bg-pink-soft" : ""}`}
+                className={`flex w-full items-center gap-3 p-3 text-left ${isOpen ? "bg-violet" : isToday ? "bg-pink-soft" : ""}`}
               >
                 <span className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border-2 border-ink bg-paper font-display leading-none">
                   <span className="text-[9px] uppercase">{MONTH_SHORT[date.getMonth()]}</span>
@@ -123,7 +123,7 @@ export default function CalendarPage() {
               </button>
 
               {isOpen && (
-                <div className="space-y-2 border-t-3 border-ink p-3">
+                <div className="halftone-dots space-y-2 border-t-3 border-ink bg-violet-soft p-3 text-violet">
                   {dayTasks.map((task) => {
                     const status = occurrences[`${task.id}__${dateISO}`]?.status ?? "pending";
                     return (

@@ -1,11 +1,10 @@
 "use client";
 
 import { BottomNav } from "@/components/BottomNav";
-import { BurstTitle } from "@/components/BurstTitle";
 import { GoalProgress } from "@/components/GoalProgress";
 import { Icon } from "@/components/Icon";
 import { LeaderboardRow } from "@/components/LeaderboardRow";
-import { DogArt } from "@/components/PetArt";
+import { CapybaraArt } from "@/components/PetArt";
 import { useFamilyStore } from "@/lib/store";
 import { relativeTime } from "@/lib/time";
 import Link from "next/link";
@@ -23,18 +22,30 @@ export default function RewardsPage() {
 
   return (
     <>
-      <header className="flex flex-col items-center gap-2 px-4 pt-6">
-        <BurstTitle color="yellow">РЕЙТИНГ</BurstTitle>
-        <p className="text-center text-xs font-bold text-ink/50">
-          Кто сегодня королева, а кто — ленивый лев?
+      <header className="flex flex-col items-center gap-3 px-4 pt-6">
+        {/* graffiti tag sprayed on a black-and-white brick wall */}
+        <div className="brick-wall relative w-full -rotate-1 overflow-hidden rounded-xl border-3 border-ink px-4 pb-7 pt-4 shadow-pop">
+          <h1 className="spray-tag text-center font-graffiti text-5xl leading-none">РЕЙТИНГ</h1>
+          <span className="paint-drip" style={{ left: "24%", top: "62%", height: 18 }} />
+          <span className="paint-drip" style={{ left: "47%", top: "64%", height: 26 }} />
+          <span className="paint-drip" style={{ left: "71%", top: "62%", height: 14 }} />
+          <span className="absolute bottom-1.5 right-3 rotate-[-6deg] font-graffiti text-sm text-lemon">ПАНК НЕ УМЕР</span>
+        </div>
+        {/* pin-up ribbon on b/w polka dots */}
+        <p className="polka-bw rotate-1 rounded-full border-3 border-ink px-1 py-1 shadow-pop-sm">
+          <span className="block rounded-full bg-white px-4 py-1 text-center font-pinup text-lg leading-tight">
+            Кто сегодня королева, а кто — ленивый лев?
+          </span>
         </p>
       </header>
 
       <main className="flex-1 space-y-5 px-4 pb-6 pt-4">
-        <div className="flex items-center justify-center gap-3">
-          <DogArt className="h-32 w-32 shrink-0 -rotate-2" />
-          <span className="rounded-2xl border-3 border-ink bg-white px-3 py-1.5 font-display text-xs shadow-pop-sm -rotate-2">
-            Даже мы болеем за вас!
+        <div className="flex items-center justify-center gap-2">
+          <CapybaraArt className="h-36 w-36 shrink-0 -rotate-2" />
+          <span className="scrap-tape rotate-3 border-3 border-ink bg-white px-3 py-2 font-pinup text-lg leading-tight shadow-pop-sm">
+            Поднапрягись,
+            <br />
+            рок-н-ролльщик!
           </span>
         </div>
 
@@ -57,7 +68,7 @@ export default function RewardsPage() {
           </p>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-5 pt-2">
           {ranked.map((m, i) => (
             <LeaderboardRow key={m.id} rank={i + 1} member={m} />
           ))}
@@ -71,7 +82,7 @@ export default function RewardsPage() {
         />
 
         <div>
-          <h2 className="mb-2 px-1 font-display text-lg uppercase">Личные кубки</h2>
+          <h2 className="mb-2 px-1 font-pinup text-2xl">★ Личные кубки ★</h2>
           <div className="space-y-2">
             {members.map((m) => {
               const count = earnedBadges.filter((b) => b.memberId === m.id && b.badgeId.startsWith("points-")).length;
@@ -97,7 +108,7 @@ export default function RewardsPage() {
 
         {familyRewardHistory.length > 0 && (
           <div>
-            <h2 className="mb-2 px-1 font-display text-lg uppercase">История семейных наград</h2>
+            <h2 className="mb-2 px-1 font-pinup text-2xl">★ История семейных наград ★</h2>
             <div className="space-y-2">
               {familyRewardHistory.map((r) => (
                 <div key={r.tier} className="flex items-center justify-between rounded-xl border-2 border-ink/20 bg-white px-3 py-2">

@@ -132,6 +132,12 @@ interface FamilyHubState {
   // deletion was a hard delete with no tombstone to read back.
   knownRemoteMemberIds: string[];
   knownRemoteTaskIds: string[];
+  // When this device last changed points itself (a completion). Points
+  // are owned by the server (complete_task_occurrence), so outside a short
+  // window after a local completion, a sync takes the server's numbers as
+  // they are — otherwise a manual fix on the server (e.g. "everyone back
+  // to 50") could never come down to a phone that had a higher number.
+  lastLocalScoreChangeAt: string | null;
 
   occurrenceFor: (taskId: string, dateISO?: string) => OccurrenceRecord;
   todaysTasks: (dateISO?: string) => Task[];
@@ -226,7 +232,16 @@ function mergeOccurrences(
   return merged;
 }
 
-function mergeMembers(local: FamilyMember[], remote: FamilyMember[], knownRemoteIds: Set<string>): FamilyMember[] {
+// How long after a completion on this device its own optimistic points
+// win over a snapshot that may predate that completion reaching the server.
+const LOCAL_SCORE_TRUST_MS = 2 * 60 * 1000;
+
+function mergeMembers(
+  local: FamilyMember[],
+  remote: FamilyMember[],
+  knownRemoteIds: Set<string>,
+  trustLocalScores: boolean,
+): FamilyMember[] {
   const remoteIds = new Set(remote.map((r) => r.id));
   const byId = new Map<string, FamilyMember>();
   for (const m of local) {
@@ -250,6 +265,17 @@ function mergeMembers(local: FamilyMember[], remote: FamilyMember[], knownRemote
     // set on one phone never reaches another phone that already cached
     // any older photo for that person.
     const fresh = (r.updatedAt || "") > (l.updatedAt || "") ? r : l;
+    if (!trustLocalScores) {
+      byId.set(r.id, {
+        ...fresh,
+        points: r.points,
+        longestStreak: r.longestStreak,
+        completedTaskCount: r.completedTaskCount,
+        currentStreak: r.currentStreak,
+        lastCompletionDate: r.lastCompletionDate,
+      });
+      continue;
+    }
     byId.set(r.id, {
       ...fresh,
       points: Math.max(l.points, r.points),
@@ -371,11 +397,16 @@ function mergeSnapshot(
     familyRewardHistory: FamilyRewardHistoryEntry[];
     knownRemoteMemberIds: string[];
     knownRemoteTaskIds: string[];
+    lastLocalScoreChangeAt?: string | null;
   },
   remote: RemoteSnapshot,
 ): MergeResult {
-  const familyPool =
-    remote.familyMilestonesUnlocked > local.familyMilestonesUnlocked
+  const trustLocalScores =
+    !!local.lastLocalScoreChangeAt &&
+    Date.now() - new Date(local.lastLocalScoreChangeAt).getTime() < LOCAL_SCORE_TRUST_MS;
+  const familyPool = !trustLocalScores
+    ? { familyMilestonesUnlocked: remote.familyMilestonesUnlocked, familyPoints: remote.familyPoints }
+    : remote.familyMilestonesUnlocked > local.familyMilestonesUnlocked
       ? { familyMilestonesUnlocked: remote.familyMilestonesUnlocked, familyPoints: remote.familyPoints }
       : remote.familyMilestonesUnlocked < local.familyMilestonesUnlocked
         ? { familyMilestonesUnlocked: local.familyMilestonesUnlocked, familyPoints: local.familyPoints }
@@ -385,7 +416,7 @@ function mergeSnapshot(
           };
 
   return {
-    members: mergeMembers(local.members, remote.members, new Set(local.knownRemoteMemberIds)),
+    members: mergeMembers(local.members, remote.members, new Set(local.knownRemoteMemberIds), trustLocalScores),
     tasks: mergeTasks(local.tasks, remote.tasks, new Set(local.knownRemoteTaskIds)),
     occurrences: mergeOccurrences(local.occurrences, remote.occurrences as Record<string, OccurrenceRecord>),
     activity: mergeActivity(local.activity, remote.activity),
@@ -417,6 +448,7 @@ const EMPTY_STATE = {
   lastSyncedAt: null as string | null,
   knownRemoteMemberIds: [] as string[],
   knownRemoteTaskIds: [] as string[],
+  lastLocalScoreChangeAt: null as string | null,
 };
 
 export const useFamilyStore = create<FamilyHubState>()(
@@ -566,6 +598,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           },
           earnedBadges: [...state.earnedBadges, ...newlyEarned],
           lastCelebration: celebrations[0] ?? state.lastCelebration,
+          lastLocalScoreChangeAt: now,
         });
 
         const completedMessage = `${names} выполнил(а) «${task.title}» (+${task.points})`;

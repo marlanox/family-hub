@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Unbounded, Inter } from "next/font/google";
+import { Unbounded, Inter, Rubik_Spray_Paint, Lobster } from "next/font/google";
 import { CelebrationToast } from "@/components/CelebrationToast";
 import { IOSActiveFix } from "@/components/IOSActiveFix";
 import { OnboardingGate } from "@/components/OnboardingGate";
@@ -20,6 +20,22 @@ const body = Inter({
   subsets: ["latin", "cyrillic"],
   weight: ["500", "600", "700", "800"],
   variable: "--font-body",
+  display: "swap",
+});
+
+// Street/scrapbook styling on secondary screens (Rewards): a spray-paint
+// graffiti face and a retro pin-up script — both with Cyrillic.
+const graffiti = Rubik_Spray_Paint({
+  subsets: ["latin", "cyrillic"],
+  weight: "400",
+  variable: "--font-graffiti",
+  display: "swap",
+});
+
+const pinup = Lobster({
+  subsets: ["latin", "cyrillic"],
+  weight: "400",
+  variable: "--font-pinup",
   display: "swap",
 });
 
@@ -60,7 +76,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" className={`${display.variable} ${body.variable}`}>
+    <html lang="ru" className={`${display.variable} ${body.variable} ${graffiti.variable} ${pinup.variable}`}>
       <body className="paper-texture min-h-dvh bg-paper font-body text-ink">
         <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-paper pt-[env(safe-area-inset-top)]">
           <OnboardingGate>{children}</OnboardingGate>

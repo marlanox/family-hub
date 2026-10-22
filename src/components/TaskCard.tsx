@@ -1,21 +1,23 @@
 import { taskTile } from "@/lib/colors";
 import type { FamilyMember, IconKey } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { Facet, shapeFor } from "./Facet";
 import { Icon } from "./Icon";
 
 export function TaskTileIcon({ icon, color }: { icon: IconKey; color: FamilyMember["accentColor"] }) {
   const tile = taskTile[color] ?? taskTile.violet;
   return (
-    <span
-      className={cn(
-        "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-3 border-ink",
-        tile.bg,
-      )}
+    <Facet
+      kind="gem"
+      shape={shapeFor(icon + color)}
+      shadow="none"
+      className="h-11 w-11 shrink-0"
+      fillClassName={cn("flex items-center justify-center", tile.bg)}
     >
-      <span className={cn(tile.plate && "rounded-md border-2 border-ink bg-white p-0.5")}>
+      <span className={cn(tile.plate && "border-2 border-ink bg-white p-0.5")}>
         <Icon name={icon} className={cn(tile.plate ? "h-4 w-4" : "h-5 w-5", tile.icon)} />
       </span>
-    </span>
+    </Facet>
   );
 }
 
@@ -45,11 +47,9 @@ export function TaskCard({
   const tile = taskTile[color] ?? taskTile.violet;
 
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 rounded-2xl border-3 border-ink p-3 shadow-pop-sm",
-        surface === "solid" ? tile.soft : "bg-white",
-      )}
+    <Facet
+      shape={shapeFor(title)}
+      fillClassName={cn("flex items-center gap-3 px-4 py-3", surface === "solid" ? tile.soft : "bg-white")}
     >
       <TaskTileIcon icon={icon} color={color} />
       <div className="min-w-0 flex-1">
@@ -60,9 +60,9 @@ export function TaskCard({
           {assigneeLabel} · {timeLabel}
         </p>
       </div>
-      <span className="rounded-full border-2 border-ink bg-mint px-2 py-1 font-display text-[11px] leading-none">
-        +{points}
-      </span>
+      <Facet shape={shapeFor(title) + 3} shadow="none" fillClassName="bg-mint px-2.5 py-1">
+        <span className="font-display text-[11px] leading-none">+{points}</span>
+      </Facet>
       <button
         type="button"
         onClick={onToggle}
@@ -79,6 +79,6 @@ export function TaskCard({
           </svg>
         )}
       </button>
-    </div>
+    </Facet>
   );
 }
