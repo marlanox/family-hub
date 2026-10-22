@@ -8,7 +8,10 @@
 //      what actually sends these (send-push for "something just
 //      happened", send-reminders for "a task is due now").
 
-const CACHE_NAME = "family-hub-shell-v4";
+const CACHE_NAME = "family-hub-shell-v5";
+// Where a tapped notification leaves "open this task" for the page to
+// pick up (see notificationclick). Kept out of the shell cache cleanup.
+const NAV_CACHE = "family-hub-pending-nav";
 // Derived from where this worker was actually registered, so the same
 // file works whether the app is served from "/" or a subpath like
 // "/family-hub/" (GitHub Pages project sites).
@@ -25,7 +28,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME && k !== NAV_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -86,14 +89,23 @@ self.addEventListener("notificationclick", (event) => {
   // GitHub Pages subpath (e.g. "/family-hub/") doesn't get doubled up.
   const targetUrl = new URL(BASE.slice(0, -1) + path, self.location.origin).href;
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+    caches
+      .open(NAV_CACHE)
+      .then((cache) =>
+        cache.put(`${BASE}__pending-nav`, new Response(JSON.stringify({ url: path, at: Date.now() }))),
+      )
+      .catch(() => {})
+      .then(() => self.clients.matchAll({ type: "window", includeUncontrolled: true }))
+      .then((clients) => {
       const existing = clients.find((c) => c.url.includes(self.location.origin));
       // An already-open app has to actually go to the task. This used to
       // call WindowClient.navigate(), which iOS doesn't implement — the
       // call threw, so the app just came to the front on whatever screen
       // it was left on (usually Home) and the task never opened. Asking
       // the page to route itself (ServiceWorkerRegister listens for
-      // this) works everywhere.
+      // this) is the fast path, but iOS can deliver it to a frozen page
+      // and lose it — so the target is also parked in NAV_CACHE above,
+      // and the page checks there whenever it comes back to the front.
       if (existing) {
         existing.postMessage({ type: "navigate", url: path });
         return existing.focus();

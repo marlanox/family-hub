@@ -6,6 +6,8 @@ import { ColorPicker } from "./ColorPicker";
 import { Sticker } from "./Sticker";
 import { useFamilyStore } from "@/lib/store";
 import { enablePushForMember, pushSupported } from "@/lib/push";
+import { isSyncAvailable } from "@/lib/supabaseClient";
+import { previewFamily } from "@/lib/sync";
 import type { FamilyMember } from "@/lib/types";
 
 /**
@@ -108,6 +110,7 @@ function CreateFamily({ onDone }: { onDone: () => void }) {
           <ComicButton variant="mint" size="lg" onClick={createMe} disabled={!name.trim()}>
             Это я →
           </ComicButton>
+          {isSyncAvailable() && <JoinExistingFamily onDone={onDone} />}
         </>
       ) : (
         <>
@@ -158,6 +161,64 @@ function CreateFamily({ onDone }: { onDone: () => void }) {
         </>
       )}
     </main>
+  );
+}
+
+// Reinstalled the app, or a new phone for someone already in the family:
+// paste the family code right here instead of creating a throwaway
+// "me" first. Joining pulls everyone (points come from the cloud), then
+// the gate asks "Это чей телефон?" to pick yourself from the real list.
+function JoinExistingFamily({ onDone }: { onDone: () => void }) {
+  const joinSync = useFamilyStore((s) => s.joinSync);
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function join() {
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    setBusy(true);
+    setError(null);
+    const preview = await previewFamily(trimmed);
+    if (!preview.ok || preview.memberNames.length === 0) {
+      setBusy(false);
+      setError("Семья с таким кодом не найдена. Проверь код и интернет.");
+      return;
+    }
+    const ok = await joinSync(trimmed);
+    setBusy(false);
+    if (!ok) {
+      setError("Не получилось подключиться. Проверь интернет и попробуй ещё раз.");
+      return;
+    }
+    onDone();
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-sm font-bold text-ink/60 underline underline-offset-4">
+        У нас уже есть семья — вставить код
+      </button>
+    );
+  }
+  return (
+    <Sticker className="w-full max-w-xs space-y-3 p-5">
+      <p className="text-xs font-bold text-ink/70">
+        Код синхронизации есть в Настройках на телефоне любого из семьи. Баллы и задачи подтянутся из облака.
+      </p>
+      <input
+        autoFocus
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        placeholder="Код семьи"
+        className="w-full border-3 border-ink px-3 py-2.5 text-center text-sm font-semibold outline-none"
+      />
+      <ComicButton variant="pink" className="w-full" onClick={join} disabled={busy || !code.trim()}>
+        {busy ? "Подключаем…" : "Войти в семью"}
+      </ComicButton>
+      {error && <p className="text-xs font-bold text-pink-deep">{error}</p>}
+    </Sticker>
   );
 }
 

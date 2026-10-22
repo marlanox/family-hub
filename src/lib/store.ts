@@ -1036,7 +1036,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           return null;
         }
         set({ familyCode: code, lastSyncedAt: new Date().toISOString(), lastSyncError: null });
-        await Promise.all(state.members.map((m) => pushMember(m, code)));
+        await Promise.all(state.members.map((m) => pushMember(m, code, { withScores: true })));
         await Promise.all(state.tasks.map((t) => pushTask(t, code)));
         await Promise.all(state.guides.map((g) => pushGuide(g, code)));
         return code;

@@ -27,18 +27,30 @@ export interface RemoteSnapshot {
   guides: Guide[];
 }
 
-function memberToRow(m: FamilyMember, familyId: string) {
+// Points, streaks and counts are owned by the database (the
+// complete_task_occurrence RPC changes them atomically). A phone's copy
+// can be stale — a reinstalled app, a phone that hasn't synced yet — so
+// an ordinary upsert (rename, photo, joining) must never send them, or
+// it would overwrite everyone's real score. Left out of the row, a new
+// member gets the column defaults and an existing one keeps its values.
+// Only enableSync, which seeds a brand-new cloud family from this phone,
+// sends them.
+function memberToRow(m: FamilyMember, familyId: string, withScores = false) {
   return {
     id: m.id,
     family_id: familyId,
     display_name: m.displayName,
     photo_url: m.photoUrl,
     accent_color: m.accentColor,
-    points: m.points,
-    current_streak: m.currentStreak,
-    longest_streak: m.longestStreak,
-    completed_task_count: m.completedTaskCount,
-    last_completion_date: m.lastCompletionDate,
+    ...(withScores
+      ? {
+          points: m.points,
+          current_streak: m.currentStreak,
+          longest_streak: m.longestStreak,
+          completed_task_count: m.completedTaskCount,
+          last_completion_date: m.lastCompletionDate,
+        }
+      : {}),
     active: m.active,
     updated_at: m.updatedAt,
   };
@@ -240,11 +252,15 @@ export async function wipeAllCloudFamilies(): Promise<SyncResult> {
   }
 }
 
-export async function pushMember(member: FamilyMember, familyId: string): Promise<SyncResult> {
+export async function pushMember(
+  member: FamilyMember,
+  familyId: string,
+  opts: { withScores?: boolean } = {},
+): Promise<SyncResult> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
   try {
-    return await upsertTolerant(supabase, "family_members", memberToRow(member, familyId));
+    return await upsertTolerant(supabase, "family_members", memberToRow(member, familyId, opts.withScores));
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

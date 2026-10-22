@@ -1,15 +1,27 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Family Hub has no server of its own. Sync is opt-in and requires each
-// household to bring their own free Supabase project, typed into Settings
-// and kept only in that browser's localStorage — see
-// docs/ARCHITECTURE.md ("Storage & sync strategy").
-//
-// There is deliberately no shared fallback project baked into the app for
-// everyone who opens the deployed link to write into: a project this app
-// was built with (NEXT_PUBLIC_SUPABASE_URL/ANON_KEY, if set at all) is
-// never used to talk to Supabase — it's ignored outright — so nobody can
-// end up syncing into a cloud they didn't knowingly set up themselves.
+// Family Hub has no server of its own; sync goes through a Supabase
+// project. This deployment is one family's own, so its project
+// (NEXT_PUBLIC_SUPABASE_URL/ANON_KEY in .env.production) is built in:
+// a reinstalled phone only needs the family code, not the URL and key.
+// The anon key is public by design; the family code is what keeps
+// another family's data out of reach. A project typed into Settings
+// still takes precedence on that device.
+
+const BUILT_IN_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const BUILT_IN_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+let builtInClient: SupabaseClient | null = null;
+
+function getBuiltIn(): SupabaseClient | null {
+  if (!BUILT_IN_URL || !BUILT_IN_KEY) return null;
+  if (!builtInClient) builtInClient = createClient(BUILT_IN_URL, BUILT_IN_KEY);
+  return builtInClient;
+}
+
+/** True when this build ships with the family's cloud already configured. */
+export function hasBuiltInCloud(): boolean {
+  return !!BUILT_IN_URL && !!BUILT_IN_KEY;
+}
 
 let customClient: SupabaseClient | null = null;
 let customUrl: string | null = null;
@@ -26,11 +38,11 @@ export function setCustomSupabase(url: string | null, key: string | null) {
 }
 
 export function getSupabase(): SupabaseClient | null {
-  return customClient;
+  return customClient ?? getBuiltIn();
 }
 
 export function isSyncAvailable(): boolean {
-  return customClient !== null;
+  return getSupabase() !== null;
 }
 
 export function usingCustomSupabase(): boolean {
@@ -38,5 +50,5 @@ export function usingCustomSupabase(): boolean {
 }
 
 export function activeSupabaseUrl(): string | null {
-  return customUrl;
+  return customUrl ?? (hasBuiltInCloud() ? BUILT_IN_URL : null);
 }

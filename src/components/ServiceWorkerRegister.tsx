@@ -11,6 +11,9 @@ import { useEffect } from "react";
  * otherwise: "why doesn't X work" turning out to just be an old build.
  * See docs/ARCHITECTURE.md "Updates" for the full reasoning.
  */
+// Must match NAV_CACHE in public/sw.js.
+const PENDING_NAV_CACHE = "family-hub-pending-nav";
+
 export function ServiceWorkerRegister() {
   const router = useRouter();
 
@@ -20,14 +23,42 @@ export function ServiceWorkerRegister() {
     // A due-task push that arrived while the app was already open and in
     // front — the service worker skips the OS banner for these and asks
     // us to jump straight to the reminder screen instead (see sw.js).
+    const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+    const pendingKey = `${base}/__pending-nav`;
+
     const onMessage = (event: MessageEvent) => {
       if (event.data?.type === "navigate" && typeof event.data.url === "string") {
         router.push(event.data.url);
+        void caches?.open(PENDING_NAV_CACHE).then((c) => c.delete(pendingKey)).catch(() => {});
       }
     };
     navigator.serviceWorker.addEventListener("message", onMessage);
 
-    const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+    // A tapped notification parks its task URL in the cache (sw.js). On
+    // iOS the "navigate" message above often never reaches the page —
+    // it was frozen in the background — so whenever the app comes to the
+    // front, look for a fresh parked URL and go there.
+    const consumePendingNav = async () => {
+      if (typeof caches === "undefined") return;
+      try {
+        const cache = await caches.open(PENDING_NAV_CACHE);
+        const res = await cache.match(pendingKey);
+        if (!res) return;
+        await cache.delete(pendingKey);
+        const { url, at } = (await res.json()) as { url?: string; at?: number };
+        if (typeof url === "string" && typeof at === "number" && Date.now() - at < 2 * 60 * 1000) {
+          router.push(url);
+        }
+      } catch {
+        // Nothing parked, or storage unavailable — stay where we are.
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void consumePendingNav();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    void consumePendingNav();
 
     let reloaded = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -56,7 +87,11 @@ export function ServiceWorkerRegister() {
         // Offline shell is a nice-to-have; the app still works without it.
       });
 
-    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", onMessage);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, [router]);
 
   return null;

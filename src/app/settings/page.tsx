@@ -4,7 +4,7 @@ import { ComicButton } from "@/components/ComicButton";
 import { ColorPicker } from "@/components/ColorPicker";
 import { Icon } from "@/components/Icon";
 import { playSound, SOUND_THEMES } from "@/lib/sound";
-import { isSyncAvailable, usingCustomSupabase, activeSupabaseUrl } from "@/lib/supabaseClient";
+import { hasBuiltInCloud, isSyncAvailable, usingCustomSupabase, activeSupabaseUrl } from "@/lib/supabaseClient";
 import { notifyFamily, previewFamily } from "@/lib/sync";
 import { enablePushForMember, pushSupported } from "@/lib/push";
 import { useFamilyStore } from "@/lib/store";
@@ -278,6 +278,11 @@ export default function SettingsPage() {
 
         <section>
           <h2 className="mb-2 px-1 font-display text-sm uppercase text-ink/60">Шаг 1 · Облако семьи</h2>
+          {hasBuiltInCloud() && !usingCustomSupabase() ? (
+            <p className="mb-2 px-1 text-xs font-semibold text-ink/50">
+              Облако семьи уже встроено в приложение — URL и ключ вводить не нужно. Просто вставьте код семьи в шаге 2.
+            </p>
+          ) : (
           <p className="mb-2 px-1 text-xs font-semibold text-ink/50">
             Синхронизация работает через бесплатный Supabase-проект — но у семьи он один на всех, не по одному на
             человека. Если в семье уже кто-то настроил синхронизацию (создал код) — у него уже есть URL и ключ,
@@ -291,6 +296,7 @@ export default function SettingsPage() {
               </>
             )}
           </p>
+          )}
           {!ownProjectOpen ? (
             <ComicButton
               variant="outline"
@@ -305,7 +311,7 @@ export default function SettingsPage() {
                 setOwnProjectOpen(true);
               }}
             >
-              {usingCustomSupabase() ? "Изменить облако" : "Подключить облако семьи"}
+              {usingCustomSupabase() ? "Изменить облако" : hasBuiltInCloud() ? "Подключить другое облако" : "Подключить облако семьи"}
             </ComicButton>
           ) : (
             <div className="space-y-2 rounded-2xl border-3 border-dashed border-ink/30 p-3">
