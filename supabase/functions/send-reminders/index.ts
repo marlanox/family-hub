@@ -279,7 +279,7 @@ Deno.serve(async (req: Request) => {
               { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
               JSON.stringify({
                 title: `⏰ Пора делать: ${task.title}`,
-                body: task.description || "Отметь, что сделал(а), или перенеси время",
+                body: task.description || "Отметь «готово» или перенеси время",
                 tag: `task-${task.id}`,
                 data: { url: `/tasks/remind?id=${task.id}` },
               }),

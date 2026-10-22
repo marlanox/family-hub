@@ -4,7 +4,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { Facet, shapeFor } from "@/components/Facet";
 import { Icon } from "@/components/Icon";
 import { useFamilyStore } from "@/lib/store";
-import { relativeTime } from "@/lib/time";
+import { humanizeActivity, relativeTime } from "@/lib/time";
 import type { ActivityEventType, IconKey } from "@/lib/types";
 import Link from "next/link";
 
@@ -59,7 +59,7 @@ export default function ActivityPage() {
                 <Icon name={ICONS[event.type]} className="h-4 w-4" />
               </Facet>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold leading-snug">{event.message}</p>
+                <p className="text-sm font-semibold leading-snug">{humanizeActivity(event.message)}</p>
                 <p className="mt-0.5 text-xs font-bold uppercase text-ink/40">{relativeTime(event.createdAt)}</p>
               </div>
               {typeof event.points === "number" && (

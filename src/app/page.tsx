@@ -11,13 +11,14 @@ import { SectionTitle } from "@/components/SectionTitle";
 import { TaskCard } from "@/components/TaskCard";
 import { occurrenceKey, resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { sharedProgress, taskStatusFor, useFamilyStore } from "@/lib/store";
+import { hhmm, plural } from "@/lib/time";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
 import { useMemo } from "react";
 
 function timeLabel(task: Task) {
-  if (task.dueTime) return `до ${task.dueTime}`;
-  if (task.startTime) return `с ${task.startTime}`;
+  if (task.dueTime) return `до ${hhmm(task.dueTime)}`;
+  if (task.startTime) return `с ${hhmm(task.startTime)}`;
   return "сегодня";
 }
 
@@ -177,7 +178,9 @@ export default function HomePage() {
           }
         >
           Сегодня
-          <span className="ml-2 align-middle text-sm text-ink/40">{pendingCount} задач</span>
+          <span className="ml-2 align-middle text-sm text-ink/40">
+            {pendingCount} {plural(pendingCount, "задача", "задачи", "задач")}
+          </span>
         </SectionTitle>
 
         <div className="space-y-2.5">

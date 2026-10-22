@@ -259,7 +259,7 @@ begin
         on conflict do nothing;
       insert into family_activity (family_id, type, member_id, message)
       values (p_family_id, 'badge_earned', v_member.id,
-        v_member.display_name || ' заработал(а) кубок за ' || (v_tier * 1000) || ' баллов!');
+        v_member.display_name || ': кубок за ' || (v_tier * 1000) || ' баллов!');
       v_badges := v_badges || jsonb_build_object('memberId', v_member.id, 'tier', v_tier, 'name', v_member.display_name);
     end loop;
 
@@ -538,7 +538,7 @@ begin
         on conflict do nothing;
       insert into family_activity (family_id, type, member_id, message)
       values (p_family_id, 'badge_earned', v_member.id,
-        v_member.display_name || ' заработал(а) кубок за ' || (v_tier * 1000) || ' баллов!');
+        v_member.display_name || ': кубок за ' || (v_tier * 1000) || ' баллов!');
       v_badges := v_badges || jsonb_build_object('memberId', v_member.id, 'tier', v_tier, 'name', v_member.display_name);
     end loop;
 

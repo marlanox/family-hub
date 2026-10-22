@@ -5,6 +5,7 @@ import { Icon } from "@/components/Icon";
 import { TaskCard } from "@/components/TaskCard";
 import { isScheduledOn, resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { sharedProgress, taskStatusFor, useFamilyStore } from "@/lib/store";
+import { hhmm } from "@/lib/time";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -31,8 +32,8 @@ function addDays(d: Date, n: number) {
 }
 
 function timeLabel(task: Task) {
-  if (task.dueTime) return `до ${task.dueTime}`;
-  if (task.startTime) return `с ${task.startTime}`;
+  if (task.dueTime) return `до ${hhmm(task.dueTime)}`;
+  if (task.startTime) return `с ${hhmm(task.startTime)}`;
   return "в течение дня";
 }
 

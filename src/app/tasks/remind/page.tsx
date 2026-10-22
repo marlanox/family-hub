@@ -148,7 +148,7 @@ function TaskReminderContent() {
         </Facet>
         <h1 className="mt-6 font-display text-3xl uppercase leading-tight">{task.title}</h1>
         <p className="mt-2 font-semibold text-ink/70">
-          {myStatus === "completed" ? "Ты уже отметил(а): сделано ✓" : "Ты уже ответил(а): сегодня не будешь"}
+          {myStatus === "completed" ? "Уже отмечено: готово ✓" : "Твой ответ: сегодня не будешь"}
         </p>
         <ComicButton variant="outline" className="mt-8" onClick={() => router.push("/")}>
           На главную
@@ -265,14 +265,14 @@ function TaskReminderContent() {
         <p className="mt-2 font-semibold text-ink/70">
           {isDueToday ? "Тебе назначили — когда время подойдёт, напомним ещё раз." : `Тебе назначили · ${scheduleLabel(task)}`}
         </p>
-        {creatorName && <p className="mt-1 text-xs font-semibold text-ink/40">Назначил(а): {creatorName}</p>}
+        {creatorName && <p className="mt-1 text-xs font-semibold text-ink/40">От: {creatorName}</p>}
         <Facet shape={4} className="mt-4" fillClassName="bg-lime px-4 py-1.5">
           <span className="font-display text-ink">+{task.points} баллов</span>
         </Facet>
 
         <div className="mt-10 w-full space-y-3">
           <ComicButton variant="mint" size="lg" className="w-full" onClick={() => router.push("/")}>
-            Хорошо, увидел(а)!
+            Ок, принято!
           </ComicButton>
           <ComicButton
             variant="outline"
@@ -312,7 +312,7 @@ function TaskReminderContent() {
       <p className="mt-6 text-sm font-bold uppercase tracking-widest text-white/50">Пора делать задачу!</p>
       <h1 className="mt-2 font-display text-4xl uppercase leading-tight">{task.title}</h1>
       <p className="mt-2 font-semibold text-white/70">{names}, пора это сделать!</p>
-      {creatorName && <p className="mt-1 text-xs font-semibold text-white/40">Назначил(а): {creatorName}</p>}
+      {creatorName && <p className="mt-1 text-xs font-semibold text-white/40">От: {creatorName}</p>}
       <Facet shape={4} shadow="none" className="mt-4" fillClassName="bg-lime px-4 py-1.5">
         <span className="font-display text-ink">+{task.points} баллов</span>
       </Facet>

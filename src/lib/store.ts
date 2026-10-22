@@ -396,7 +396,10 @@ function mergeTasks(local: Task[], remote: Task[], knownRemoteIds: Set<string>):
     const rTime = new Date(r.updatedAt || r.createdAt || 0).getTime();
     byId.set(r.id, rTime > lTime ? r : l);
   }
-  return Array.from(byId.values()).filter((t) => !t.deletedAt);
+  // Copies cached before times were trimmed still carry "22:00:00".
+  return Array.from(byId.values())
+    .filter((t) => !t.deletedAt)
+    .map((t) => (t.dueTime?.length === 8 || t.startTime?.length === 8 ? { ...t, dueTime: t.dueTime?.slice(0, 5), startTime: t.startTime?.slice(0, 5) } : t));
 }
 
 function activityDedupeKey(e: ActivityEvent) {
@@ -479,7 +482,7 @@ interface MergeResult {
 type Repair = { taskId: string; dateISO: string; completedAt: string };
 // Shared tasks are answered per person now; an older "task_completed"
 // event on one was for everybody at once, and its message names them
-// all ("Маша, Наташа, Ваня выполнил(а) …").
+// all ("Маша, Наташа, Ваня — готово: …", formerly "… выполнил(а) …").
 function isAllAtOnceEvent(message: string): boolean {
   return (message.split("«")[0] ?? "").includes(",");
 }
@@ -748,7 +751,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             celebrations.push({
               key: newId("cel"),
               emoji: "🏆",
-              title: `${m.displayName} заработал(а) кубок за ${tier * 1000} баллов!`,
+              title: `${m.displayName}: кубок за ${tier * 1000} баллов!`,
               subtitle: "Новый личный рубеж — так держать",
               kind: "badge",
             });
@@ -773,7 +776,7 @@ export const useFamilyStore = create<FamilyHubState>()(
               celebrations.push({
                 key: newId("cel"),
                 emoji: "🌅",
-                title: `${m.displayName} получил(а) значок «Ранняя пташка»`,
+                title: `${m.displayName}: значок «Ранняя пташка»`,
                 subtitle: "Дело сделано с утра",
                 kind: "badge",
               });
@@ -829,7 +832,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           lastLocalScoreChangeAt: now,
         });
 
-        const completedMessage = `${names} выполнил(а) «${task.title}» (+${task.points})`;
+        const completedMessage = `${names} — готово: «${task.title}» (+${task.points})`;
         get().logActivity({
           type: "task_completed",
           memberId: members[0]?.id ?? task.creatorId,
@@ -864,7 +867,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           get().logActivity({
             type: "badge_earned",
             memberId: badge.memberId,
-            message: `${owner?.displayName ?? ""} получил(а) ${label}`,
+            message: `${owner?.displayName ?? ""}: ${label}`,
           });
         }
         if (familyMilestonesUnlocked > state.familyMilestonesUnlocked) {
@@ -949,7 +952,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           });
         }
 
-        const refusedMessage = `${names} отметил(а), что сегодня не будет делать «${task.title}»${reason ? ` (${reason})` : ""}`;
+        const refusedMessage = `${names} — сегодня не будет: «${task.title}»${reason ? ` (${reason})` : ""}`;
         get().logActivity({
           type: "task_refused",
           memberId: members[0]?.id ?? task.creatorId,
@@ -1016,7 +1019,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         const members = mine ? state.members.filter((m) => m.id === mine) : assigneeMembers(task.assignee, state.members, dateISO);
         const names = members.map((m) => m.displayName).join(", ");
         const until = hours < 1 ? `${Math.round(hours * 60)} мин` : hours === 1 ? "час" : `${hours} ч`;
-        const snoozedMessage = `${names} перенес(ла) «${task.title}» на ${until}`;
+        const snoozedMessage = `${names} — позже: «${task.title}», через ${until}`;
         get().logActivity({
           type: "task_postponed",
           memberId: members[0]?.id ?? task.creatorId,
@@ -1075,7 +1078,7 @@ export const useFamilyStore = create<FamilyHubState>()(
             : input.assignee.kind === "rotation"
               ? `по очереди (${assigneeNames})`
               : assigneeNames;
-        const message = `${creator?.displayName ?? "Кто-то"} назначил(а) новую задачу «${task.title}»: ${assigneeLabel}`;
+        const message = `${creator?.displayName ?? "Кто-то"} → ${assigneeLabel}: новая задача «${task.title}»`;
 
         // Logged locally (and synced below) even without a push
         // notification arriving — so "a task got assigned to me" is
@@ -1140,7 +1143,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         const state = get();
         const editorId = state.whoAmI ?? state.members[0]?.id ?? "";
         const editorName = state.members.find((m) => m.id === editorId)?.displayName ?? "Кто-то";
-        const message = `${editorName} добавил(а) инструкцию «${trimmedTitle}»`;
+        const message = `${editorName} — новая инструкция «${trimmedTitle}»`;
         get().logActivity({ type: "guide_updated", memberId: editorId, message });
 
         const code = state.familyCode;
@@ -1179,7 +1182,7 @@ export const useFamilyStore = create<FamilyHubState>()(
 
         const editorId = state.whoAmI ?? state.members[0]?.id ?? "";
         const editorName = state.members.find((m) => m.id === editorId)?.displayName ?? "Кто-то";
-        const message = `${editorName} обновил(а) инструкцию «${updated.title}»`;
+        const message = `${editorName} — правка в инструкции «${updated.title}»`;
         get().logActivity({ type: "guide_updated", memberId: editorId, message });
 
         const code = state.familyCode;
@@ -1217,7 +1220,7 @@ export const useFamilyStore = create<FamilyHubState>()(
 
         const editorId = state.whoAmI ?? state.members[0]?.id ?? "";
         const editorName = state.members.find((m) => m.id === editorId)?.displayName ?? "Кто-то";
-        const message = `${editorName} удалил(а) инструкцию «${removed.title}»`;
+        const message = `${editorName} — инструкция удалена: «${removed.title}»`;
         get().logActivity({ type: "guide_updated", memberId: editorId, message });
         if (code) {
           void pushActivity(
@@ -1240,7 +1243,7 @@ export const useFamilyStore = create<FamilyHubState>()(
         get().logActivity({
           type: "member_joined",
           memberId: member.id,
-          message: `${name} присоединил(ась) к семье`,
+          message: `${name} — теперь в семье`,
         });
         playSound("created", get().soundEnabled, get().soundTheme);
         const code = get().familyCode;

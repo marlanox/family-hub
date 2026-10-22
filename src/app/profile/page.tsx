@@ -8,6 +8,7 @@ import { TaskCard } from "@/components/TaskCard";
 import { accentMap } from "@/lib/colors";
 import { resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { taskStatusFor, useFamilyStore } from "@/lib/store";
+import { hhmm } from "@/lib/time";
 import { uploadPhoto } from "@/lib/sync";
 import type { IconKey } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
@@ -173,7 +174,7 @@ function ProfileContent() {
                   color={t.color}
                   title={t.title}
                   assigneeLabel={member.displayName}
-                  timeLabel={t.dueTime ? `до ${t.dueTime}` : "сегодня"}
+                  timeLabel={t.dueTime ? `до ${hhmm(t.dueTime)}` : "сегодня"}
                   points={t.points}
                   completed={status === "completed"}
                   onToggle={() => status !== "completed" && completeTask(t.id)}
