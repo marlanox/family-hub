@@ -74,7 +74,7 @@ export default function PlanPage() {
         </div>
       </header>
 
-      <main className="flex-1 space-y-2.5 px-4 pb-6 pt-4">
+      <main className="flex-1 space-y-2.5 px-4 pb-6 pt-4 landscape:grid landscape:grid-cols-2 landscape:items-start landscape:gap-2.5 landscape:space-y-0">
         {visible.map((task) => {
           const occ = occurrences[`${task.id}__${key}`];
           const status = taskStatusFor(task, occ, whoAmI, members, key);

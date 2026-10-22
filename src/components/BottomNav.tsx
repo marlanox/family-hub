@@ -33,7 +33,7 @@ export function BottomNav() {
   return (
     <>
       <div className="h-[calc(4.75rem+env(safe-area-inset-bottom))] shrink-0" aria-hidden />
-      <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md border-t-3 border-ink bg-white px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+      <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md border-t-3 landscape:max-w-4xl border-ink bg-white pb-[max(0.5rem,env(safe-area-inset-bottom))] pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] pt-2">
         <div className="relative flex items-center justify-between">
           {items.slice(0, 2).map((item) => (
             <NavItem key={item.href} item={item} active={pathname === item.href} />

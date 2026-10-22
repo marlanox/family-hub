@@ -52,7 +52,7 @@ export default function ActivityPage() {
         <p className="mt-1 text-sm font-semibold text-ink/55">Что происходит в семье</p>
       </header>
 
-      <main className="flex-1 space-y-2.5 px-4 pb-6 pt-4">
+      <main className="flex-1 space-y-2.5 px-4 pb-6 pt-4 landscape:grid landscape:grid-cols-2 landscape:items-start landscape:gap-2.5 landscape:space-y-0">
         {activity.length === 0 && (
           <p className="rounded-2xl border-3 border-dashed border-ink/30 p-4 text-center text-sm font-semibold text-ink/50">
             Пока тихо — выполните первую задачу

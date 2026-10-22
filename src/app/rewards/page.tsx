@@ -72,7 +72,7 @@ export default function RewardsPage() {
           </p>
         )}
 
-        <div className="space-y-5 pt-2">
+        <div className="space-y-5 pt-2 landscape:grid landscape:grid-cols-2 landscape:items-start landscape:gap-x-4 landscape:gap-y-5 landscape:space-y-0">
           {ranked.map((m, i) => (
             <LeaderboardRow key={m.id} rank={i + 1} member={m} />
           ))}
@@ -88,7 +88,7 @@ export default function RewardsPage() {
         <div>
           <h2 className="px-1 font-display text-lg uppercase">★ Личные кубки</h2>
           <p className="mb-2 px-1 text-sm font-bold">🏆 Кубок даётся за каждые {TROPHY_EVERY} баллов — сам, ничего нажимать не нужно.</p>
-          <div className="space-y-2">
+          <div className="space-y-2 landscape:grid landscape:grid-cols-2 landscape:items-start landscape:gap-2.5 landscape:space-y-0">
             {members.map((m) => {
               // Straight from points (one per full thousand), so it always
               // agrees with the score shown everywhere else.

@@ -137,7 +137,7 @@ export default function HomePage() {
         {assignedToMe.length > 0 && (
           <>
             <SectionTitle>Назначено тебе</SectionTitle>
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 landscape:grid landscape:grid-cols-2 landscape:items-start landscape:gap-2.5 landscape:space-y-0">
               {assignedToMe.map((task) => (
                 <Link key={task.id} href={`/tasks/remind?id=${task.id}&reason=assigned`} className="block">
                   <TaskCard
@@ -179,7 +179,7 @@ export default function HomePage() {
           </span>
         </SectionTitle>
 
-        <div className="space-y-2.5">
+        <div className="space-y-2.5 landscape:grid landscape:grid-cols-2 landscape:items-start landscape:gap-2.5 landscape:space-y-0">
           {sortedToday.map((task) => {
             const status = myStatus(task);
             if (status === "refused") return null;

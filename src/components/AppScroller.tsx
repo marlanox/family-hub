@@ -23,7 +23,12 @@ export function AppScroller({ children }: { children: ReactNode }) {
 
   return (
     <div ref={ref} className="fixed inset-0 overflow-y-auto overscroll-y-contain">
-      <div className="mx-auto flex min-h-full max-w-md flex-col bg-paper pt-[env(safe-area-inset-top)]">{children}</div>
+      {/* Phone held upright: one narrow column. Turned sideways: the page
+          widens (lists switch to two columns where it helps) and keeps
+          clear of the notch on either side. */}
+      <div className="mx-auto flex min-h-full max-w-md flex-col bg-paper pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-[env(safe-area-inset-top)] landscape:max-w-4xl">
+        {children}
+      </div>
     </div>
   );
 }
