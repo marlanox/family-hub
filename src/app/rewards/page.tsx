@@ -6,6 +6,7 @@ import { GoalProgress } from "@/components/GoalProgress";
 import { Icon } from "@/components/Icon";
 import { LeaderboardRow } from "@/components/LeaderboardRow";
 import { CapybaraArt } from "@/components/PetArt";
+import { pointsToNextTrophy, TROPHY_EVERY } from "@/lib/stats";
 import { useFamilyStore } from "@/lib/store";
 import { relativeTime } from "@/lib/time";
 import Link from "next/link";
@@ -16,7 +17,6 @@ export default function RewardsPage() {
   const familyPoints = useFamilyStore((s) => s.familyPoints);
   const rewardName = useFamilyStore((s) => s.currentFamilyRewardName());
   const familyRewardHistory = useFamilyStore((s) => s.familyRewardHistory);
-  const earnedBadges = useFamilyStore((s) => s.earnedBadges);
   const [period, setPeriod] = useState<"week" | "month" | "all">("all");
 
   const ranked = [...members].sort((a, b) => b.points - a.points);
@@ -86,26 +86,29 @@ export default function RewardsPage() {
         />
 
         <div>
-          <h2 className="mb-2 px-1 font-display text-lg uppercase">★ Личные кубки</h2>
+          <h2 className="px-1 font-display text-lg uppercase">★ Личные кубки</h2>
+          <p className="mb-2 px-1 text-sm font-bold">🏆 Кубок даётся за каждые {TROPHY_EVERY} баллов — сам, ничего нажимать не нужно.</p>
           <div className="space-y-2">
             {members.map((m) => {
-              const count = earnedBadges.filter((b) => b.memberId === m.id && b.badgeId.startsWith("points-")).length;
+              // Straight from points (one per full thousand), so it always
+              // agrees with the score shown everywhere else.
+              const count = Math.floor(m.points / TROPHY_EVERY);
               return (
                 <Link key={m.id} href={`/profile?member=${m.id}`} className="block">
                   <Facet shape={shapeFor(m.id) + 1} fillClassName="flex items-center gap-3 bg-white px-4 py-3">
                     <Facet kind="gem" shape={shapeFor(m.id)} shadow="none" className="h-10 w-10 shrink-0" fillClassName="glitter-gold flex items-center justify-center">
                       <Icon name="trophy" className="h-5 w-5" />
                     </Facet>
-                    <p className="flex-1 font-display text-sm uppercase">{m.displayName}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-display text-sm uppercase">{m.displayName}</p>
+                      <p className="text-[11px] font-bold text-ink/50">до следующего — {pointsToNextTrophy(m.points)} баллов</p>
+                    </div>
                     <p className="font-display text-sm">×{count}</p>
                   </Facet>
                 </Link>
               );
             })}
           </div>
-          <p className="mt-1.5 px-1 text-[11px] font-semibold text-ink/40">
-            Кубок появляется автоматически за каждую новую 1000 баллов у человека — забирать вручную не нужно.
-          </p>
         </div>
 
         {familyRewardHistory.length > 0 && (

@@ -213,6 +213,7 @@ export interface Guide {
 export type ActivityEventType =
   | "task_assigned"
   | "task_completed"
+  | "task_undone"
   | "task_refused"
   | "task_postponed"
   | "task_missed"
@@ -231,4 +232,7 @@ export interface ActivityEvent {
   points?: number;
   message: string;
   createdAt: string;
+  // Set once the entry has come back from the server — if it later goes
+  // missing there, it was deleted (e.g. an undone "готово"), not unsent.
+  synced?: boolean;
 }

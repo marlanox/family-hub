@@ -11,6 +11,7 @@ import { SectionTitle } from "@/components/SectionTitle";
 import { TaskCard } from "@/components/TaskCard";
 import { occurrenceKey, resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { sharedProgress, taskStatusFor, useFamilyStore } from "@/lib/store";
+import { familyStats } from "@/lib/stats";
 import { hhmm, plural } from "@/lib/time";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
@@ -40,6 +41,9 @@ export default function HomePage() {
   const allTasks = useFamilyStore((s) => s.tasks);
   const whoAmI = useFamilyStore((s) => s.whoAmI);
   const occurrences = useFamilyStore((s) => s.occurrences);
+  const activity = useFamilyStore((s) => s.activity);
+  // From the shared activity log, so every phone shows the same numbers.
+  const fam = useMemo(() => familyStats(activity), [activity]);
   const completeTask = useFamilyStore((s) => s.completeTask);
   const familyPoints = useFamilyStore((s) => s.familyPoints);
   const rewardName = useFamilyStore((s) => s.currentFamilyRewardName());
@@ -80,14 +84,6 @@ export default function HomePage() {
     const time = (t: Task) => t.dueTime ?? t.startTime ?? "99:99";
     return [...todaysTasks].sort((a, b) => Number(done(a)) - Number(done(b)) || time(a).localeCompare(time(b)));
   }, [todaysTasks, occurrences, todayKey, whoAmI, members]);
-
-  // Every completed occurrence this phone knows about. The per-member
-  // completed_task_count on the server only started counting recently
-  // (it was reset along with the points), so it showed "1".
-  const completedCount = useMemo(
-    () => Object.values(occurrences).filter((o) => o.status === "completed").length,
-    [occurrences],
-  );
 
   const pendingCount = todaysTasks.filter(
     (t) => myStatus(t) !== "completed",
@@ -214,8 +210,8 @@ export default function HomePage() {
         </div>
 
         <div className="flex gap-2.5">
-          <BadgeChip emoji="🔥" value={Math.max(...members.map((m) => m.currentStreak), 0)} label="дней подряд" />
-          <BadgeChip emoji="🏆" value={completedCount} label="задач выполнено" />
+          <BadgeChip emoji="🔥" value={fam.streak} label={`${plural(fam.streak, "день", "дня", "дней")} подряд`} />
+          <BadgeChip emoji="🏆" value={fam.completed} label={`${plural(fam.completed, "задача выполнена", "задачи выполнено", "задач выполнено")}`} />
           <BadgeChip emoji="⭐" value={members.length} label="человек в команде" />
         </div>
       </main>

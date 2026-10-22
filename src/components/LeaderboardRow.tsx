@@ -1,6 +1,7 @@
 import type { FamilyMember } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { Facet } from "./Facet";
+import { pointsToNextTrophy } from "@/lib/stats";
 
 interface LeaderboardRowProps {
   rank: number;
@@ -34,7 +35,10 @@ export function LeaderboardRow({ rank, member }: LeaderboardRowProps) {
           <span className="font-display text-lg text-ink">{member.displayName.charAt(0)}</span>
         )}
       </Facet>
-      <p className="flex-1 font-display text-base uppercase leading-none">{member.displayName}</p>
+      <div className="min-w-0 flex-1">
+        <p className="font-display text-base uppercase leading-none">{member.displayName}</p>
+        <p className="mt-1 text-[10px] font-bold uppercase text-ink/50">🏆 через {pointsToNextTrophy(member.points)}</p>
+      </div>
       <p className="font-graffiti text-2xl leading-none">{member.points}</p>
     </Facet>
   );

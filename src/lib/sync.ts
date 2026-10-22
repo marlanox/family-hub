@@ -25,6 +25,9 @@ export interface MemberMark {
 export interface RemoteSnapshot {
   familyName: string;
   familyTimezone?: string;
+  // False when the activity query failed — the merge then keeps local
+  // entries instead of treating "nothing came back" as "all deleted".
+  activityOk: boolean;
   familyPoints: number;
   familyMilestonesUnlocked: number;
   members: FamilyMember[];
@@ -544,6 +547,61 @@ export async function pushActivity(event: ActivityEvent, familyId: string): Prom
   }
 }
 
+/** How much activity history is kept and synced (counters are computed from it). */
+export const ACTIVITY_LIMIT = 1000;
+
+/**
+ * Takes back a mistaken "готово": subtracts its points from whoever got
+ * them and from the family pool, drops trophies they no longer reach,
+ * and deletes the activity entry. The occurrence itself stays done on
+ * the server, so nothing re-sends it and re-awards the points.
+ */
+export async function undoCompletionRemote(
+  familyId: string,
+  memberIds: string[],
+  points: number,
+  entry: { taskId?: string; message: string; createdAt: string },
+): Promise<SyncResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
+  try {
+    for (const id of memberIds) {
+      const { data, error } = await supabase.from("family_members").select("points").eq("id", id).maybeSingle();
+      if (error) return { ok: false, error: error.message };
+      const current = (data?.points as number | undefined) ?? 0;
+      const next = Math.max(0, current - points);
+      const upd = await supabase.from("family_members").update({ points: next }).eq("id", id);
+      if (upd.error) return { ok: false, error: upd.error.message };
+      const lost = [];
+      for (let tier = Math.floor(next / 1000) + 1; tier <= Math.floor(current / 1000); tier++) lost.push(`points-${tier}`);
+      if (lost.length) await supabase.from("user_badges").delete().eq("member_id", id).in("badge_id", lost);
+    }
+    const fam = await supabase.from("families").select("family_points_pool").eq("id", familyId).maybeSingle();
+    if (!fam.error && fam.data) {
+      await supabase
+        .from("families")
+        .update({ family_points_pool: Math.max(0, (fam.data.family_points_pool as number) - points) })
+        .eq("id", familyId);
+    }
+    // Same task done on other days has the very same text — narrow it to
+    // this entry's moment (the phone's and the server's copy differ by ms).
+    const at = new Date(entry.createdAt).getTime();
+    let del = supabase
+      .from("family_activity")
+      .delete()
+      .eq("family_id", familyId)
+      .eq("type", "task_completed")
+      .eq("message", entry.message)
+      .gte("created_at", new Date(at - 5 * 60000).toISOString())
+      .lte("created_at", new Date(at + 5 * 60000).toISOString());
+    if (entry.taskId) del = del.eq("task_id", entry.taskId);
+    const { error } = await del;
+    return error ? { ok: false, error: error.message } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 function isoDaysAgo(days: number): string {
   const d = new Date(Date.now() - days * 86400000);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -611,7 +669,7 @@ export async function fetchSnapshot(
         .gte("scheduled_for", isoDaysAgo(21))
         .order("scheduled_for", { ascending: false })
         .limit(1000),
-      supabase.from("family_activity").select("*").eq("family_id", familyId).order("created_at", { ascending: false }).limit(200),
+      supabase.from("family_activity").select("*").eq("family_id", familyId).order("created_at", { ascending: false }).limit(ACTIVITY_LIMIT),
       supabase.from("user_badges").select("*, family_members!inner(family_id)").eq("family_members.family_id", familyId),
       supabase.from("family_reward_history").select("*").eq("family_id", familyId).order("tier", { ascending: false }),
       // Tolerated like everything below familyRes — if `family_guides`
@@ -664,6 +722,7 @@ export async function fetchSnapshot(
     snapshot: {
       familyName: familyRes.data.name,
       familyTimezone: familyRes.data.timezone ?? undefined,
+      activityOk: !activityRes.error,
       familyPoints: familyRes.data.family_points_pool,
       familyMilestonesUnlocked: familyRes.data.family_milestones_unlocked,
       members: (membersRes.data ?? []).map(rowToMember),

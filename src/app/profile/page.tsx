@@ -8,7 +8,8 @@ import { TaskCard } from "@/components/TaskCard";
 import { accentMap } from "@/lib/colors";
 import { resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { taskStatusFor, useFamilyStore } from "@/lib/store";
-import { hhmm } from "@/lib/time";
+import { memberStats, pointsToNextTrophy, TROPHY_EVERY } from "@/lib/stats";
+import { hhmm, plural } from "@/lib/time";
 import { uploadPhoto } from "@/lib/sync";
 import type { IconKey } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
@@ -48,6 +49,7 @@ function ProfileContent() {
   const completeTask = useFamilyStore((s) => s.completeTask);
   const updateMemberPhoto = useFamilyStore((s) => s.updateMemberPhoto);
   const whoAmI = useFamilyStore((s) => s.whoAmI);
+  const activity = useFamilyStore((s) => s.activity);
   const familyCode = useFamilyStore((s) => s.familyCode);
 
   const [selectedId, setSelectedId] = useState(preselected ?? members[0]?.id);
@@ -60,6 +62,7 @@ function ProfileContent() {
 
   const rank = [...members].sort((a, b) => b.points - a.points).findIndex((m) => m.id === member.id) + 1;
   const myBadges = earnedBadges.filter((b) => b.memberId === member.id);
+  const stats = memberStats(activity, members, member.id);
   const key = todayISO();
   const myTasks = tasks.filter((t) => {
     const ids = resolveAssigneeIds(t.assignee, key);
@@ -140,8 +143,8 @@ function ProfileContent() {
 
       <main className="flex-1 space-y-4 px-4 pb-6 pt-4">
         <div className="flex gap-2.5">
-          <BadgeChip emoji="🔥" value={member.currentStreak} label="дней подряд" />
-          <BadgeChip emoji="🏆" value={member.completedTaskCount} label="задач выполнено" />
+          <BadgeChip emoji="🔥" value={stats.streak} label={`${plural(stats.streak, "день", "дня", "дней")} подряд`} />
+          <BadgeChip emoji="🏆" value={stats.completed} label={plural(stats.completed, "задача выполнена", "задачи выполнено", "задач выполнено")} />
           <BadgeChip emoji="⭐" value={myBadges.length} label="значков" />
         </div>
 
@@ -212,8 +215,10 @@ function ProfileContent() {
           <div className="space-y-2">
             <StatRow icon="star" label="Место в рейтинге" value={`#${rank}`} />
             <StatRow icon="trophy" label="Баллов всего заработано" value={member.points} />
-            <StatRow icon="checklist" label="Задач выполнено" value={member.completedTaskCount} />
-            <StatRow icon="alarm" label="Лучшая серия дней" value={member.longestStreak} />
+            <StatRow icon="checklist" label="Задач выполнено" value={stats.completed} />
+            <StatRow icon="alarm" label="Лучшая серия дней" value={stats.bestStreak} />
+            <StatRow icon="trophy" label={`Кубков (по одному за ${TROPHY_EVERY} баллов)`} value={Math.floor(member.points / TROPHY_EVERY)} />
+            <StatRow icon="star" label="До следующего кубка" value={`${pointsToNextTrophy(member.points)} баллов`} />
           </div>
         )}
       </main>

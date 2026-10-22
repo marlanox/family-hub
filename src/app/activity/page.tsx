@@ -3,6 +3,7 @@
 import { BottomNav } from "@/components/BottomNav";
 import { Facet, shapeFor } from "@/components/Facet";
 import { Icon } from "@/components/Icon";
+import { creditedMemberIds } from "@/lib/stats";
 import { useFamilyStore } from "@/lib/store";
 import { humanizeActivity, relativeTime } from "@/lib/time";
 import type { ActivityEventType, IconKey } from "@/lib/types";
@@ -11,6 +12,7 @@ import Link from "next/link";
 const ICONS: Record<ActivityEventType, IconKey> = {
   task_assigned: "plus",
   task_completed: "checklist",
+  task_undone: "close",
   task_refused: "close",
   task_postponed: "clock",
   task_missed: "clock",
@@ -24,6 +26,7 @@ const ICONS: Record<ActivityEventType, IconKey> = {
 const TONES: Record<ActivityEventType, string> = {
   task_assigned: "bg-lilac-soft",
   task_completed: "bg-lime",
+  task_undone: "bg-silver-soft",
   task_refused: "bg-pink-soft",
   task_postponed: "bg-violet-soft",
   task_missed: "bg-silver-soft",
@@ -37,6 +40,8 @@ const TONES: Record<ActivityEventType, string> = {
 export default function ActivityPage() {
   const activity = useFamilyStore((s) => s.activity);
   const tasks = useFamilyStore((s) => s.tasks);
+  const members = useFamilyStore((s) => s.members);
+  const undoCompletion = useFamilyStore((s) => s.undoCompletion);
   const taskIds = new Set(tasks.map((t) => t.id));
 
   return (
@@ -60,7 +65,29 @@ export default function ActivityPage() {
               </Facet>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold leading-snug">{humanizeActivity(event.message)}</p>
-                <p className="mt-0.5 text-xs font-bold uppercase text-ink/40">{relativeTime(event.createdAt)}</p>
+                <div className="mt-0.5 flex items-center gap-3">
+                  <p className="text-xs font-bold uppercase text-ink/40">{relativeTime(event.createdAt)}</p>
+                  {/* Taking back a mistaken "готово" (wrong person, a typo'd
+                      1000 points): removes its points and this entry. */}
+                  {event.type === "task_completed" && (event.points ?? 0) > 0 && (
+                    <button
+                      type="button"
+                      className="text-xs font-bold uppercase text-pink-deep underline underline-offset-2"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const names = creditedMemberIds(event, members)
+                          .map((id) => members.find((m) => m.id === id)?.displayName ?? "")
+                          .join(", ");
+                        if (confirm(`Отменить это «готово»? У ${names} снимется ${event.points} баллов, запись исчезнет.`)) {
+                          undoCompletion(event.id);
+                        }
+                      }}
+                    >
+                      Отменить
+                    </button>
+                  )}
+                </div>
               </div>
               {typeof event.points === "number" && (
                 <Facet shape={shapeFor(event.id) + 2} shadow="none" fillClassName="bg-lime px-2.5 py-1">

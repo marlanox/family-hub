@@ -22,11 +22,14 @@ import {
   pushTask,
   repairCompletedOccurrence,
   syncFamilyTimezone,
+  undoCompletionRemote,
   wipeAllCloudFamilies,
+  ACTIVITY_LIMIT,
   type MemberMark,
   type RemoteSnapshot,
 } from "./sync";
 import { setCustomSupabase } from "./supabaseClient";
+import { creditedMemberIds } from "./stats";
 import type {
   ActivityEvent,
   Difficulty,
@@ -201,6 +204,7 @@ interface FamilyHubState {
   currentFamilyRewardName: () => string;
 
   completeTask: (taskId: string, dateISO?: string) => void;
+  undoCompletion: (eventId: string) => void;
   refuseTask: (taskId: string, reason: string | undefined, dateISO?: string) => void;
   snoozeTask: (taskId: string, hours: number, dateISO?: string) => void;
   addTask: (input: NewTaskInput) => string;
@@ -403,12 +407,34 @@ function mergeTasks(local: Task[], remote: Task[], knownRemoteIds: Set<string>):
 }
 
 function activityDedupeKey(e: ActivityEvent) {
-  return `${e.type}|${e.memberId}|${e.taskId ?? ""}|${e.message}`;
+  // The day is part of the key: the same daily task done on Monday and on
+  // Tuesday has the very same text and used to collapse into one entry.
+  return `${e.type}|${e.memberId}|${e.taskId ?? ""}|${e.message}|${todayISO(new Date(e.createdAt))}`;
 }
 
-function mergeActivity(local: ActivityEvent[], remote: ActivityEvent[]): ActivityEvent[] {
+// The server's log is the truth, so every phone shows (and counts) the
+// same history: a local entry survives only if the server has it too,
+// if it's this phone's own and a few minutes old at most (its upload may
+// still be on the way), or if it's older than anything the server sent
+// back. Without this, entries deleted on the server (an undone "готово")
+// lived on in each phone's own copy, and counters drifted apart.
+const ACTIVITY_PENDING_MS = 10 * 60 * 1000;
+
+function mergeActivity(local: ActivityEvent[], remote: ActivityEvent[], remoteOk = true): ActivityEvent[] {
+  let keptLocal = local;
+  if (remoteOk) {
+    const remoteKeys = new Set(remote.map(activityDedupeKey));
+    const oldestRemote =
+      remote.length >= ACTIVITY_LIMIT ? Math.min(...remote.map((e) => new Date(e.createdAt).getTime())) : -Infinity;
+    const pendingSince = Date.now() - ACTIVITY_PENDING_MS;
+    keptLocal = local.filter((e) => {
+      const t = new Date(e.createdAt).getTime();
+      return remoteKeys.has(activityDedupeKey(e)) || (!e.synced && t > pendingSince) || t < oldestRemote;
+    });
+  }
+  const remoteKeys = new Set(remote.map(activityDedupeKey));
   const seen = new Map<string, ActivityEvent>();
-  for (const e of [...local, ...remote]) {
+  for (const e of [...keptLocal, ...remote]) {
     const k = activityDedupeKey(e);
     const existing = seen.get(k);
     if (!existing || new Date(e.createdAt).getTime() < new Date(existing.createdAt).getTime()) {
@@ -416,8 +442,9 @@ function mergeActivity(local: ActivityEvent[], remote: ActivityEvent[]): Activit
     }
   }
   return Array.from(seen.values())
+    .map((e) => (remoteOk && remoteKeys.has(activityDedupeKey(e)) && !e.synced ? { ...e, synced: true } : e))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 200);
+    .slice(0, ACTIVITY_LIMIT);
 }
 
 function mergeBadges(local: EarnedBadge[], remote: EarnedBadge[]): EarnedBadge[] {
@@ -619,7 +646,7 @@ function mergeSnapshot(
             familyPoints: Math.max(local.familyPoints, remote.familyPoints),
           };
 
-  const activity = mergeActivity(local.activity, remote.activity);
+  const activity = mergeActivity(local.activity, remote.activity, remote.activityOk);
   const remoteOcc = remote.occurrences as Record<string, OccurrenceRecord>;
   const tasks = mergeTasks(local.tasks, remote.tasks, new Set(local.knownRemoteTaskIds));
   const members = mergeMembers(local.members, remote.members, new Set(local.knownRemoteMemberIds), trustLocalScores);
@@ -701,7 +728,7 @@ export const useFamilyStore = create<FamilyHubState>()(
               createdAt: new Date().toISOString(),
             },
             ...state.activity,
-          ].slice(0, 200),
+          ].slice(0, ACTIVITY_LIMIT),
         }));
       },
 
@@ -869,6 +896,22 @@ export const useFamilyStore = create<FamilyHubState>()(
             memberId: badge.memberId,
             message: `${owner?.displayName ?? ""}: ${label}`,
           });
+          // Trophies and streak badges are written by the server itself;
+          // "Ранняя пташка" only exists here, so upload its entry or it
+          // would vanish from the shared log (and other phones) later.
+          if (badge.badgeId === "early-bird" && state.familyCode) {
+            void pushActivity(
+              {
+                id: "",
+                familyId: state.familyCode,
+                type: "badge_earned",
+                memberId: badge.memberId,
+                message: `${owner?.displayName ?? ""}: ${label}`,
+                createdAt: now,
+              },
+              state.familyCode,
+            );
+          }
         }
         if (familyMilestonesUnlocked > state.familyMilestonesUnlocked) {
           get().logActivity({
@@ -911,6 +954,53 @@ export const useFamilyStore = create<FamilyHubState>()(
             "/activity",
           ).then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
+          });
+        }
+      },
+
+      // A mistaken "готово" (wrong person, a 1000-point typo…): take its
+      // points back from whoever got them and remove the entry. Started
+      // from the "Отменить" button on that entry in Activity.
+      undoCompletion: (eventId) => {
+        const state = get();
+        const event = state.activity.find((e) => e.id === eventId && e.type === "task_completed");
+        if (!event) return;
+        const points = event.points ?? 0;
+        const credited = creditedMemberIds(event, state.members);
+        const now = new Date().toISOString();
+        const members = state.members.map((m) =>
+          credited.includes(m.id) ? { ...m, points: Math.max(0, m.points - points) } : m,
+        );
+        const earnedBadges = state.earnedBadges.filter((b) => {
+          if (!credited.includes(b.memberId) || !b.badgeId.startsWith("points-")) return true;
+          const owner = members.find((m) => m.id === b.memberId);
+          return Number(b.badgeId.split("-")[1]) * 1000 <= (owner?.points ?? 0);
+        });
+        const names = credited.map((id) => state.members.find((m) => m.id === id)?.displayName ?? "").join(", ");
+        const title = event.message.match(/«(.+?)»/)?.[1] ?? "задача";
+        const undoneMessage = `${names} — отменено: «${title}» (−${points})`;
+        set({
+          members,
+          earnedBadges,
+          familyPoints: Math.max(0, state.familyPoints - points),
+          activity: [
+            { id: newId("activity"), familyId: FAMILY_ID, type: "task_undone", memberId: event.memberId, taskId: event.taskId, message: undoneMessage, createdAt: now },
+            ...state.activity.filter((e) => e.id !== eventId),
+          ],
+          lastLocalScoreChangeAt: now,
+        });
+        if (state.familyCode) {
+          const code = state.familyCode;
+          void undoCompletionRemote(code, credited, points, event).then((r) => {
+            if (!r.ok) {
+              set({ lastSyncError: r.error });
+              return;
+            }
+            set({ lastLocalScoreChangeAt: new Date().toISOString() });
+            void pushActivity(
+              { id: "", familyId: code, type: "task_undone", memberId: event.memberId, taskId: event.taskId, message: undoneMessage, createdAt: now },
+              code,
+            );
           });
         }
       },
