@@ -8,7 +8,7 @@
 //      what actually sends these (send-push for "something just
 //      happened", send-reminders for "a task is due now").
 
-const CACHE_NAME = "family-hub-shell-v3";
+const CACHE_NAME = "family-hub-shell-v4";
 // Derived from where this worker was actually registered, so the same
 // file works whether the app is served from "/" or a subpath like
 // "/family-hub/" (GitHub Pages project sites).
@@ -86,12 +86,18 @@ self.addEventListener("notificationclick", (event) => {
   // GitHub Pages subpath (e.g. "/family-hub/") doesn't get doubled up.
   const targetUrl = new URL(BASE.slice(0, -1) + path, self.location.origin).href;
   event.waitUntil(
-    self.clients.matchAll({ type: "window" }).then((clients) => {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       const existing = clients.find((c) => c.url.includes(self.location.origin));
-      // A tab that's already open needs to actually navigate to the
-      // task — just focusing it left whoever tapped the notification
-      // staring at whatever screen they'd last left open.
-      if (existing) return existing.navigate(targetUrl).then((c) => c.focus()).catch(() => existing.focus());
+      // An already-open app has to actually go to the task. This used to
+      // call WindowClient.navigate(), which iOS doesn't implement — the
+      // call threw, so the app just came to the front on whatever screen
+      // it was left on (usually Home) and the task never opened. Asking
+      // the page to route itself (ServiceWorkerRegister listens for
+      // this) works everywhere.
+      if (existing) {
+        existing.postMessage({ type: "navigate", url: path });
+        return existing.focus();
+      }
       return self.clients.openWindow(targetUrl);
     }),
   );
