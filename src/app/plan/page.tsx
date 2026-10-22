@@ -3,7 +3,7 @@
 import { BottomNav } from "@/components/BottomNav";
 import { Icon } from "@/components/Icon";
 import { TaskCard } from "@/components/TaskCard";
-import { useFamilyStore } from "@/lib/store";
+import { sharedProgress, taskStatusFor, useFamilyStore } from "@/lib/store";
 import { resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
@@ -23,6 +23,7 @@ const MONTH = [
 
 export default function PlanPage() {
   const members = useFamilyStore((s) => s.members);
+  const whoAmI = useFamilyStore((s) => s.whoAmI);
   const tasks = useFamilyStore((s) => s.todaysTasks());
   const occurrences = useFamilyStore((s) => s.occurrences);
   const completeTask = useFamilyStore((s) => s.completeTask);
@@ -74,7 +75,9 @@ export default function PlanPage() {
 
       <main className="flex-1 space-y-2.5 px-4 pb-6 pt-4">
         {visible.map((task) => {
-          const status = occurrences[`${task.id}__${key}`]?.status ?? "pending";
+          const occ = occurrences[`${task.id}__${key}`];
+          const status = taskStatusFor(task, occ, whoAmI, members, key);
+          const progress = sharedProgress(task, occ, members, key);
           return (
             <Link key={task.id} href={`/tasks/remind?id=${task.id}&src=app`} className="block">
               <TaskCard
@@ -83,9 +86,9 @@ export default function PlanPage() {
                 title={task.title}
                 assigneeLabel={(() => {
                   const ids = resolveAssigneeIds(task.assignee, key);
-                  return ids === "family"
-                    ? "Всем"
-                    : ids.map((id) => members.find((m) => m.id === id)?.displayName ?? id).join(", ");
+                  const label =
+                    ids === "family" ? "Всем" : ids.map((id) => members.find((m) => m.id === id)?.displayName ?? id).join(", ");
+                  return progress ? `${label} · ${progress.done}/${progress.total} ✓` : label;
                 })()}
                 timeLabel={timeLabel(task)}
                 points={task.points}

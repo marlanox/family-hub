@@ -10,7 +10,7 @@ import { Icon } from "@/components/Icon";
 import { SectionTitle } from "@/components/SectionTitle";
 import { TaskCard } from "@/components/TaskCard";
 import { occurrenceKey, resolveAssigneeIds, todayISO } from "@/lib/schedule";
-import { useFamilyStore } from "@/lib/store";
+import { sharedProgress, taskStatusFor, useFamilyStore } from "@/lib/store";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
 import { useMemo } from "react";
@@ -51,9 +51,12 @@ export default function HomePage() {
   const todayKey = todayISO();
   const assigneeLabel = (task: Task) => {
     const ids = resolveAssigneeIds(task.assignee, todayKey);
-    if (ids === "family") return "Всем";
-    return ids.map((id) => members.find((m) => m.id === id)?.displayName ?? id).join(", ");
+    const label = ids === "family" ? "Всем" : ids.map((id) => members.find((m) => m.id === id)?.displayName ?? id).join(", ");
+    // Shared task: each answers for themselves — show how many already did.
+    const p = sharedProgress(task, occurrences[occurrenceKey(task.id, todayKey)], members, todayKey);
+    return p ? `${label} · ${p.done}/${p.total} ✓` : label;
   };
+  const myStatus = (task: Task) => taskStatusFor(task, occurrences[occurrenceKey(task.id, todayKey)], whoAmI, members, todayKey);
 
   // Someone assigned me a task that isn't due today (a one-off for later
   // this week, or days that skip today): it used to be invisible here,
@@ -72,10 +75,10 @@ export default function HomePage() {
 
   // Still-to-do first (soonest deadline on top), done ones sink down.
   const sortedToday = useMemo(() => {
-    const done = (t: Task) => (occurrences[occurrenceKey(t.id, todayKey)]?.status ?? "pending") === "completed";
+    const done = (t: Task) => taskStatusFor(t, occurrences[occurrenceKey(t.id, todayKey)], whoAmI, members, todayKey) === "completed";
     const time = (t: Task) => t.dueTime ?? t.startTime ?? "99:99";
     return [...todaysTasks].sort((a, b) => Number(done(a)) - Number(done(b)) || time(a).localeCompare(time(b)));
-  }, [todaysTasks, occurrences, todayKey]);
+  }, [todaysTasks, occurrences, todayKey, whoAmI, members]);
 
   // Every completed occurrence this phone knows about. The per-member
   // completed_task_count on the server only started counting recently
@@ -86,7 +89,7 @@ export default function HomePage() {
   );
 
   const pendingCount = todaysTasks.filter(
-    (t) => (occurrences[occurrenceKey(t.id, todayKey)]?.status ?? "pending") !== "completed",
+    (t) => myStatus(t) !== "completed",
   ).length;
 
   return (
@@ -183,8 +186,7 @@ export default function HomePage() {
 
         <div className="space-y-2.5">
           {sortedToday.map((task) => {
-            const key = occurrenceKey(task.id, todayKey);
-            const status = occurrences[key]?.status ?? "pending";
+            const status = myStatus(task);
             if (status === "refused") return null;
             return (
               <Link key={task.id} href={`/tasks/remind?id=${task.id}&src=app`} className="block">

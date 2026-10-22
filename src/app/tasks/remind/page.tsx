@@ -4,9 +4,9 @@ import { ComicButton } from "@/components/ComicButton";
 import { Facet } from "@/components/Facet";
 import { Icon } from "@/components/Icon";
 import { GrumpyDogArt } from "@/components/PetArt";
-import { isScheduledOn, resolveAssigneeIds, todayISO } from "@/lib/schedule";
+import { isScheduledOn, occurrenceKey, resolveAssigneeIds, todayISO } from "@/lib/schedule";
 import { playSound } from "@/lib/sound";
-import { useFamilyStore } from "@/lib/store";
+import { taskStatusFor, useFamilyStore } from "@/lib/store";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -37,6 +37,7 @@ function TaskReminderContent() {
   const router = useRouter();
   const task = useFamilyStore((s) => s.tasks.find((t) => t.id === id));
   const members = useFamilyStore((s) => s.members);
+  const occurrences = useFamilyStore((s) => s.occurrences);
   const whoAmI = useFamilyStore((s) => s.whoAmI);
   const soundEnabled = useFamilyStore((s) => s.soundEnabled);
   const soundTheme = useFamilyStore((s) => s.soundTheme);
@@ -79,13 +80,17 @@ function TaskReminderContent() {
   // not an alarm: show the calm "assigned" screen instead.
   const isDueToday = !!task && isScheduledOn(task, new Date(`${todayKey}T12:00:00`));
   const showAssignedView = isFreshlyAssigned || !isDueToday;
+  // Already answered today (done or "не буду") — on a shared task that's
+  // this person's own answer, even while others still owe theirs.
+  const myStatus = task ? taskStatusFor(task, occurrences[occurrenceKey(task.id, todayKey)], whoAmI, members, todayKey) : "pending";
+  const alreadyAnswered = myStatus === "completed" || myStatus === "refused";
 
   // The due-now screen, reached from a reminder notification, buzzes like
   // an alarm clock — but only three times (~7 s), then goes quiet. It
   // used to loop for as long as the screen stayed open, and the same
   // screen also opened from an ordinary tap on your own task, so the app
   // could beep endlessly just from being opened.
-  const isUrgentScreen = !!task && isMineToday && !showAssignedView && !confirmingRefuse && !openedFromApp;
+  const isUrgentScreen = !!task && isMineToday && !showAssignedView && !confirmingRefuse && !openedFromApp && !alreadyAnswered;
   useEffect(() => {
     if (!isUrgentScreen) return;
     playSound("urgentAlarm", soundEnabled, soundTheme);
@@ -128,6 +133,23 @@ function TaskReminderContent() {
         <Icon name={task.icon} className="h-16 w-16 text-white/40" />
         <h1 className="mt-4 font-display text-2xl uppercase leading-tight">{task.title}</h1>
         <p className="mt-2 font-semibold text-white/60">Эта задача не твоя — ждём, пока ответит {names}.</p>
+        <ComicButton variant="outline" className="mt-8" onClick={() => router.push("/")}>
+          На главную
+        </ComicButton>
+      </main>
+    );
+  }
+
+  if (alreadyAnswered && !confirmingRefuse) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center bg-paper px-6 py-10 text-center">
+        <Facet kind="gem" shape={2} shadow="md" className="h-40 w-40" fillClassName="halftone-dots flex items-center justify-center bg-lime">
+          <Icon name={task.icon} className="h-20 w-20 text-ink" />
+        </Facet>
+        <h1 className="mt-6 font-display text-3xl uppercase leading-tight">{task.title}</h1>
+        <p className="mt-2 font-semibold text-ink/70">
+          {myStatus === "completed" ? "Ты уже отметил(а): сделано ✓" : "Ты уже ответил(а): сегодня не будешь"}
+        </p>
         <ComicButton variant="outline" className="mt-8" onClick={() => router.push("/")}>
           На главную
         </ComicButton>

@@ -14,6 +14,14 @@ import type {
 // push here is best-effort and swallows its own errors: sync is a bonus
 // on top of the local-first store, never something the UI blocks on.
 
+/** One person's own answer on a shared task (table task_member_marks). */
+export interface MemberMark {
+  status: "completed" | "refused" | "snoozed";
+  at: string;
+  reason?: string;
+  snoozedUntil?: string;
+}
+
 export interface RemoteSnapshot {
   familyName: string;
   familyTimezone?: string;
@@ -21,7 +29,17 @@ export interface RemoteSnapshot {
   familyMilestonesUnlocked: number;
   members: FamilyMember[];
   tasks: Task[];
-  occurrences: Record<string, { status: string; refusalReason?: string; completedAt?: string; snoozedUntil?: string; remindersSent: number }>;
+  occurrences: Record<
+    string,
+    {
+      status: string;
+      refusalReason?: string;
+      completedAt?: string;
+      snoozedUntil?: string;
+      remindersSent: number;
+      marks?: Record<string, MemberMark>;
+    }
+  >;
   activity: ActivityEvent[];
   earnedBadges: EarnedBadge[];
   familyRewardHistory: { tier: number; name: string; unlockedAt: string }[];
@@ -347,6 +365,59 @@ export async function pushComplete(
   }
 }
 
+/** "Сделано" for one person on a shared task — points only to them. */
+export async function pushCompleteForMember(
+  taskId: string,
+  dateISO: string,
+  familyId: string,
+  points: number,
+  memberId: string,
+  allMemberIds: string[],
+): Promise<SyncResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
+  try {
+    const { error } = await supabase.rpc("complete_task_for_member", {
+      p_task_id: taskId,
+      p_scheduled_for: dateISO,
+      p_family_id: familyId,
+      p_points: points,
+      p_member_id: memberId,
+      p_all_member_ids: allMemberIds,
+    });
+    return error ? { ok: false, error: error.message } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** "Не буду" / "Напомни позже" for one person on a shared task. */
+export async function pushMarkForMember(
+  taskId: string,
+  dateISO: string,
+  memberId: string,
+  status: "refused" | "snoozed",
+  opts: { reason?: string; hours?: number },
+  allMemberIds: string[],
+): Promise<SyncResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
+  try {
+    const { error } = await supabase.rpc("mark_task_for_member", {
+      p_task_id: taskId,
+      p_scheduled_for: dateISO,
+      p_member_id: memberId,
+      p_status: status,
+      p_reason: opts.reason ?? null,
+      p_hours: opts.hours ?? null,
+      p_all_member_ids: allMemberIds,
+    });
+    return error ? { ok: false, error: error.message } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function pushRefuse(taskId: string, dateISO: string, reason: string | undefined): Promise<SyncResult> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
@@ -522,9 +593,9 @@ export async function fetchSnapshot(
 ): Promise<{ ok: true; snapshot: RemoteSnapshot } | { ok: false; error: string }> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
-  let familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes, guidesRes;
+  let familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes, guidesRes, marksRes;
   try {
-    [familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes, guidesRes] = await Promise.all([
+    [familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes, guidesRes, marksRes] = await Promise.all([
       supabase.from("families").select("*").eq("id", familyId).maybeSingle(),
       supabase.from("family_members").select("*").eq("family_id", familyId),
       supabase.from("tasks").select("*").eq("family_id", familyId),
@@ -548,6 +619,14 @@ export async function fetchSnapshot(
       // an error and `guidesRes.data` stays undefined, so guides fall
       // back to an empty list instead of failing the whole sync pull.
       supabase.from("family_guides").select("*").eq("family_id", familyId),
+      // Per-person answers on shared tasks. Tolerated like guides: before
+      // the shared-tasks migration this table doesn't exist.
+      supabase
+        .from("task_member_marks")
+        .select("*, tasks!inner(family_id)")
+        .eq("tasks.family_id", familyId)
+        .gte("scheduled_for", isoDaysAgo(21))
+        .limit(1000),
     ]);
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -564,6 +643,19 @@ export async function fetchSnapshot(
       completedAt: row.completed_at ?? undefined,
       snoozedUntil: row.snoozed_until ?? undefined,
       remindersSent: row.reminders_sent ?? 0,
+    };
+  }
+  for (const row of marksRes.error ? [] : (marksRes.data ?? [])) {
+    const key = occurrenceKey(row.task_id, row.scheduled_for);
+    const occ = (occurrences[key] ??= { status: "pending", remindersSent: 0 });
+    occ.marks = {
+      ...occ.marks,
+      [row.member_id]: {
+        status: row.status,
+        at: row.at,
+        reason: row.refusal_reason ?? undefined,
+        snoozedUntil: row.snoozed_until ?? undefined,
+      },
     };
   }
 

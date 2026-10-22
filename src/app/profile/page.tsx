@@ -7,7 +7,7 @@ import { Icon } from "@/components/Icon";
 import { TaskCard } from "@/components/TaskCard";
 import { accentMap } from "@/lib/colors";
 import { resolveAssigneeIds, todayISO } from "@/lib/schedule";
-import { useFamilyStore } from "@/lib/store";
+import { taskStatusFor, useFamilyStore } from "@/lib/store";
 import { uploadPhoto } from "@/lib/sync";
 import type { IconKey } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
@@ -165,7 +165,7 @@ function ProfileContent() {
         {tab === "tasks" && (
           <div className="space-y-2.5">
             {myTasks.map((t) => {
-              const status = occurrences[`${t.id}__${key}`]?.status ?? "pending";
+              const status = taskStatusFor(t, occurrences[`${t.id}__${key}`], member.id, members, key);
               return (
                 <TaskCard
                   key={t.id}

@@ -13,7 +13,9 @@ import {
   notifyFamily,
   pushActivity,
   pushComplete,
+  pushCompleteForMember,
   pushGuide,
+  pushMarkForMember,
   pushMember,
   pushRefuse,
   pushSnooze,
@@ -21,6 +23,7 @@ import {
   repairCompletedOccurrence,
   syncFamilyTimezone,
   wipeAllCloudFamilies,
+  type MemberMark,
   type RemoteSnapshot,
 } from "./sync";
 import { setCustomSupabase } from "./supabaseClient";
@@ -65,6 +68,58 @@ interface OccurrenceRecord {
   completedAt?: string;
   snoozedUntil?: string;
   remindersSent: number;
+  // Shared tasks (whole family, or several named people): each person's
+  // own answer, keyed by member id. The occurrence itself only turns
+  // completed/refused once every assignee has answered.
+  marks?: Record<string, MemberMark>;
+}
+
+/**
+ * The assignees of a shared occurrence — one everybody answers for
+ * themselves — or null when one answer covers it (a single person, or a
+ * rotation's person of the week).
+ */
+export function sharedAssigneeIds(task: Task, members: FamilyMember[], dateISO: string): string[] | null {
+  const ids = resolveAssigneeIds(task.assignee, dateISO);
+  if (ids === "family") return members.length > 1 ? members.map((m) => m.id) : null;
+  return ids.length > 1 ? ids : null;
+}
+
+/** Where this occurrence stands for one person (their own answer on a shared task). */
+export function taskStatusFor(
+  task: Task,
+  occ: OccurrenceRecord | undefined,
+  memberId: string | null,
+  members: FamilyMember[],
+  dateISO: string,
+): OccurrenceStatus {
+  const status = occ?.status ?? "pending";
+  if (status === "completed" || status === "refused") return status;
+  const shared = sharedAssigneeIds(task, members, dateISO);
+  if (shared && memberId && shared.includes(memberId)) {
+    const mark = occ?.marks?.[memberId];
+    if (!mark) return "pending";
+    if (mark.status === "snoozed") return mark.snoozedUntil && new Date(mark.snoozedUntil).getTime() > Date.now() ? "snoozed" : "pending";
+    return mark.status;
+  }
+  return status;
+}
+
+/** "2/3" for a shared occurrence: how many assignees have done it. */
+export function sharedProgress(
+  task: Task,
+  occ: OccurrenceRecord | undefined,
+  members: FamilyMember[],
+  dateISO: string,
+): { done: number; total: number } | null {
+  const shared = sharedAssigneeIds(task, members, dateISO);
+  if (!shared) return null;
+  if (occ?.status === "completed" && !occ.marks) return { done: shared.length, total: shared.length };
+  return { done: shared.filter((id) => occ?.marks?.[id]?.status === "completed").length, total: shared.length };
+}
+
+function allAnswered(shared: string[], marks: Record<string, MemberMark>): boolean {
+  return shared.every((id) => marks[id]?.status === "completed" || marks[id]?.status === "refused");
 }
 
 export interface NewTaskInput {
@@ -225,11 +280,30 @@ function freshMember(name: string, accentColor: FamilyMember["accentColor"]): Fa
 // loss (points and whole tasks disappearing after a "sync").
 const STATUS_RANK: Record<string, number> = { pending: 0, snoozed: 1, refused: 2, completed: 3 };
 
+const MARK_RANK: Record<MemberMark["status"], number> = { snoozed: 0, refused: 1, completed: 2 };
+
+function mergeMarks(
+  a: Record<string, MemberMark> | undefined,
+  b: Record<string, MemberMark> | undefined,
+): Record<string, MemberMark> | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  const out = { ...a };
+  for (const [id, m] of Object.entries(b)) {
+    const x = out[id];
+    if (!x || MARK_RANK[m.status] > MARK_RANK[x.status] || (MARK_RANK[m.status] === MARK_RANK[x.status] && m.at > x.at)) {
+      out[id] = m;
+    }
+  }
+  return out;
+}
+
 function mergeOccurrence(a: OccurrenceRecord | undefined, b: OccurrenceRecord | undefined): OccurrenceRecord {
   if (!a) return b!;
   if (!b) return a;
   const winner = (STATUS_RANK[b.status] ?? 0) > (STATUS_RANK[a.status] ?? 0) ? b : a;
-  return { ...winner, remindersSent: Math.max(a.remindersSent ?? 0, b.remindersSent ?? 0) };
+  const marks = mergeMarks(a.marks, b.marks);
+  return { ...winner, remindersSent: Math.max(a.remindersSent ?? 0, b.remindersSent ?? 0), ...(marks ? { marks } : {}) };
 }
 
 function mergeOccurrences(
@@ -403,10 +477,19 @@ interface MergeResult {
 // here, and is reported so the server row can be repaired too (no
 // points — those were awarded when it was really done).
 type Repair = { taskId: string; dateISO: string; completedAt: string };
+// Shared tasks are answered per person now; an older "task_completed"
+// event on one was for everybody at once, and its message names them
+// all ("Маша, Наташа, Ваня выполнил(а) …").
+function isAllAtOnceEvent(message: string): boolean {
+  return (message.split("«")[0] ?? "").includes(",");
+}
+
 function healFromActivity(
   occurrences: Record<string, OccurrenceRecord>,
   activity: ActivityEvent[],
   remote: Record<string, OccurrenceRecord>,
+  tasks: Task[],
+  members: FamilyMember[],
 ): { occurrences: Record<string, OccurrenceRecord>; repairs: Repair[]; healedKeys: string[] } {
   const cutoff = Date.now() - 21 * 86400000;
   const healed = { ...occurrences };
@@ -418,6 +501,16 @@ function healFromActivity(
     if (at.getTime() < cutoff) continue;
     const dateISO = todayISO(at);
     const key = occurrenceKey(e.taskId, dateISO);
+    const task = tasks.find((t) => t.id === e.taskId);
+    const shared = task ? sharedAssigneeIds(task, members, dateISO) : null;
+    if (shared && !isAllAtOnceEvent(e.message) && shared.includes(e.memberId)) {
+      const occ = healed[key] ?? { status: "pending", remindersSent: 0 };
+      if (occ.status !== "completed" && occ.marks?.[e.memberId]?.status !== "completed") {
+        healedKeys.push(`${key}#${e.memberId}`);
+        healed[key] = { ...occ, marks: { ...occ.marks, [e.memberId]: { status: "completed", at: e.createdAt } } };
+      }
+      continue;
+    }
     if (healed[key]?.status !== "completed") {
       healedKeys.push(key);
       healed[key] = { ...(healed[key] ?? { remindersSent: 0 }), status: "completed", completedAt: e.createdAt };
@@ -439,8 +532,8 @@ function healFromActivity(
 // points. Throttled per occurrence so a persistent error doesn't spam.
 const lastResend = new Map<string, number>();
 function resendUnsynced(
-  state: { occurrences: Record<string, OccurrenceRecord>; tasks: Task[]; members: FamilyMember[] },
-  remote: Record<string, { status: string }>,
+  state: { occurrences: Record<string, OccurrenceRecord>; tasks: Task[]; members: FamilyMember[]; whoAmI: string | null },
+  remote: Record<string, { status: string; marks?: Record<string, MemberMark> }>,
   code: string,
   // Healed from the activity log: done for real (points already given),
   // only the server row was reset — repaired separately, never re-awarded.
@@ -448,6 +541,20 @@ function resendUnsynced(
 ) {
   const recent = new Set([0, 1, 2].map((d) => todayISO(new Date(Date.now() - d * 86400000))));
   for (const [key, occ] of Object.entries(state.occurrences)) {
+    const me = state.whoAmI;
+    const myMark = me ? occ.marks?.[me] : undefined;
+    if (me && myMark?.status === "completed" && remote[key]?.marks?.[me]?.status !== "completed" && remote[key]?.status !== "completed") {
+      const sep = key.lastIndexOf("__");
+      const taskId = key.slice(0, sep);
+      const dateISO = key.slice(sep + 2);
+      const markKey = `${key}#${me}`;
+      const task = state.tasks.find((t) => t.id === taskId);
+      const shared = task ? sharedAssigneeIds(task, state.members, dateISO) : null;
+      if (task && shared && recent.has(dateISO) && !skip.has(markKey) && Date.now() - (lastResend.get(markKey) ?? 0) >= 2 * 60 * 1000) {
+        lastResend.set(markKey, Date.now());
+        void pushCompleteForMember(taskId, dateISO, code, task.points, me, shared);
+      }
+    }
     if (occ.status !== "completed" && occ.status !== "refused") continue;
     const sep = key.lastIndexOf("__");
     const taskId = key.slice(0, sep);
@@ -457,6 +564,9 @@ function resendUnsynced(
     if (Date.now() - (lastResend.get(key) ?? 0) < 2 * 60 * 1000) continue;
     const task = state.tasks.find((t) => t.id === taskId);
     if (!task) continue;
+    // A shared task closed by everyone's own answers: those are re-sent
+    // per person above; the old all-at-once call would credit everybody.
+    if (occ.marks && sharedAssigneeIds(task, state.members, dateISO)) continue;
     lastResend.set(key, Date.now());
     if (occ.status === "completed") {
       const ids = assigneeMembers(task.assignee, state.members, dateISO).map((m) => m.id);
@@ -508,11 +618,13 @@ function mergeSnapshot(
 
   const activity = mergeActivity(local.activity, remote.activity);
   const remoteOcc = remote.occurrences as Record<string, OccurrenceRecord>;
-  const healed = healFromActivity(mergeOccurrences(local.occurrences, remoteOcc), activity, remoteOcc);
+  const tasks = mergeTasks(local.tasks, remote.tasks, new Set(local.knownRemoteTaskIds));
+  const members = mergeMembers(local.members, remote.members, new Set(local.knownRemoteMemberIds), trustLocalScores);
+  const healed = healFromActivity(mergeOccurrences(local.occurrences, remoteOcc), activity, remoteOcc, tasks, members);
 
   return {
-    members: mergeMembers(local.members, remote.members, new Set(local.knownRemoteMemberIds), trustLocalScores),
-    tasks: mergeTasks(local.tasks, remote.tasks, new Set(local.knownRemoteTaskIds)),
+    members,
+    tasks,
     occurrences: healed.occurrences,
     repairs: healed.repairs,
     healedKeys: healed.healedKeys,
@@ -597,9 +709,19 @@ export const useFamilyStore = create<FamilyHubState>()(
         // Anyone may tick a task done from a list (the family asked for
         // that); refusing and snoozing stay with whoever it's assigned to.
         const key = occurrenceKey(taskId, dateISO);
-        if (state.occurrences[key]?.status === "completed") return;
+        const prevOcc = state.occurrences[key];
+        if (prevOcc?.status === "completed") return;
 
-        const members = assigneeMembers(task.assignee, state.members, dateISO);
+        // Shared task and I'm one of its people: this is MY answer only —
+        // points to me, and it closes once everyone has answered.
+        const shared = sharedAssigneeIds(task, state.members, dateISO);
+        const me = state.whoAmI;
+        const mine = shared && me && shared.includes(me) ? me : null;
+        if (mine && prevOcc?.marks?.[mine]?.status === "completed") return;
+
+        const members = mine
+          ? state.members.filter((m) => m.id === mine)
+          : assigneeMembers(task.assignee, state.members, dateISO);
         const now = new Date().toISOString();
         const hourNow = new Date().getHours();
         const celebrations: Celebration[] = [];
@@ -693,7 +815,14 @@ export const useFamilyStore = create<FamilyHubState>()(
           familyRewardHistory,
           occurrences: {
             ...state.occurrences,
-            [key]: { status: "completed", completedAt: now, remindersSent: 0 },
+            [key]: (() => {
+              if (!mine || !shared) return { status: "completed" as const, completedAt: now, remindersSent: 0, marks: prevOcc?.marks };
+              const marks = { ...prevOcc?.marks, [mine]: { status: "completed" as const, at: now } };
+              const base = prevOcc ?? { status: "pending" as const, remindersSent: 0 };
+              return allAnswered(shared, marks)
+                ? { ...base, status: "completed" as const, completedAt: now, marks }
+                : { ...base, marks };
+            })(),
           },
           earnedBadges: [...state.earnedBadges, ...newlyEarned],
           lastCelebration: celebrations[0] ?? state.lastCelebration,
@@ -759,7 +888,11 @@ export const useFamilyStore = create<FamilyHubState>()(
           // device's local points keep climbing (optimistic update above)
           // while the server, and every other device, never see it. That
           // mismatch was invisible until this error-check existed.
-          void pushComplete(task.id, dateISO, state.familyCode, task.points, members.map((m) => m.id)).then((r) => {
+          const pushed =
+            mine && shared
+              ? pushCompleteForMember(task.id, dateISO, state.familyCode, task.points, mine, shared)
+              : pushComplete(task.id, dateISO, state.familyCode, task.points, members.map((m) => m.id));
+          void pushed.then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
           void notifyFamily(
@@ -780,19 +913,36 @@ export const useFamilyStore = create<FamilyHubState>()(
         if (!task) return;
         if (!isMyOccurrence(task, state.whoAmI, dateISO)) return;
         const key = occurrenceKey(taskId, dateISO);
-        const members = assigneeMembers(task.assignee, state.members, dateISO);
+        const shared = sharedAssigneeIds(task, state.members, dateISO);
+        const mine = shared && state.whoAmI && shared.includes(state.whoAmI) ? state.whoAmI : null;
+        const members = mine ? state.members.filter((m) => m.id === mine) : assigneeMembers(task.assignee, state.members, dateISO);
         const names = members.map((m) => m.displayName).join(", ");
+        const prevOcc = state.occurrences[key];
 
-        set({
-          occurrences: {
-            ...state.occurrences,
-            [key]: {
-              status: "refused",
-              refusalReason: reason,
-              remindersSent: state.occurrences[key]?.remindersSent ?? 0,
+        if (mine && shared) {
+          const marks = { ...prevOcc?.marks, [mine]: { status: "refused" as const, at: new Date().toISOString(), reason } };
+          const base = prevOcc ?? { status: "pending" as const, remindersSent: 0 };
+          const closed = allAnswered(shared, marks);
+          const anyDone = shared.some((id) => marks[id]?.status === "completed");
+          set({
+            occurrences: {
+              ...state.occurrences,
+              [key]: closed ? { ...base, status: anyDone ? "completed" : "refused", marks } : { ...base, marks },
             },
-          },
-        });
+          });
+        } else {
+          set({
+            occurrences: {
+              ...state.occurrences,
+              [key]: {
+                status: "refused",
+                refusalReason: reason,
+                remindersSent: prevOcc?.remindersSent ?? 0,
+                marks: prevOcc?.marks,
+              },
+            },
+          });
+        }
 
         const refusedMessage = `${names} отметил(а), что сегодня не будет делать «${task.title}»${reason ? ` (${reason})` : ""}`;
         get().logActivity({
@@ -803,7 +953,11 @@ export const useFamilyStore = create<FamilyHubState>()(
         });
 
         if (state.familyCode) {
-          void pushRefuse(taskId, dateISO, reason).then((r) => {
+          const pushed =
+            mine && shared
+              ? pushMarkForMember(taskId, dateISO, mine, "refused", { reason }, shared)
+              : pushRefuse(taskId, dateISO, reason);
+          void pushed.then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
           void pushActivity(
@@ -833,19 +987,28 @@ export const useFamilyStore = create<FamilyHubState>()(
         const key = occurrenceKey(taskId, dateISO);
         const current = state.occurrences[key];
         const snoozedUntil = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+        const shared = task ? sharedAssigneeIds(task, state.members, dateISO) : null;
+        const mine = shared && state.whoAmI && shared.includes(state.whoAmI) ? state.whoAmI : null;
         set({
           occurrences: {
             ...state.occurrences,
-            [key]: {
-              status: "snoozed",
-              snoozedUntil,
-              remindersSent: (current?.remindersSent ?? 0) + 1,
-            },
+            [key]:
+              mine && shared
+                ? {
+                    ...(current ?? { status: "pending" as const, remindersSent: 0 }),
+                    marks: { ...current?.marks, [mine]: { status: "snoozed" as const, at: new Date().toISOString(), snoozedUntil } },
+                  }
+                : {
+                    status: "snoozed",
+                    snoozedUntil,
+                    remindersSent: (current?.remindersSent ?? 0) + 1,
+                    marks: current?.marks,
+                  },
           },
         });
         if (!task) return;
 
-        const members = assigneeMembers(task.assignee, state.members, dateISO);
+        const members = mine ? state.members.filter((m) => m.id === mine) : assigneeMembers(task.assignee, state.members, dateISO);
         const names = members.map((m) => m.displayName).join(", ");
         const until = hours < 1 ? `${Math.round(hours * 60)} мин` : hours === 1 ? "час" : `${hours} ч`;
         const snoozedMessage = `${names} перенес(ла) «${task.title}» на ${until}`;
@@ -857,7 +1020,11 @@ export const useFamilyStore = create<FamilyHubState>()(
         });
 
         if (state.familyCode) {
-          void pushSnooze(taskId, dateISO, hours).then((r) => {
+          const pushed =
+            mine && shared
+              ? pushMarkForMember(taskId, dateISO, mine, "snoozed", { hours }, shared)
+              : pushSnooze(taskId, dateISO, hours);
+          void pushed.then((r) => {
             if (!r.ok) set({ lastSyncError: r.error });
           });
           void pushActivity(

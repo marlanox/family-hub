@@ -153,6 +153,14 @@ function shiftDate(dateISO: string, days: number): string {
 const MAX_AUTO_REMINDERS = 3;
 const REMIND_EVERY_MS = 60 * 60 * 1000;
 
+interface MarkRow {
+  task_id: string;
+  member_id: string;
+  status: string;
+  snoozed_until: string | null;
+  at: string;
+}
+
 function isDealtWith(occs: OccurrenceRow[], dateISO: string, dayStartMs: number, nowMs: number): boolean {
   return occs.some((o) => {
     if (o.scheduled_for === dateISO && (o.status === "completed" || o.status === "refused" || o.status === "cancelled")) {
@@ -223,6 +231,24 @@ Deno.serve(async (req: Request) => {
         occsByTask.set(o.task_id, [...(occsByTask.get(o.task_id) ?? []), o]);
       }
 
+      // Per-person answers on shared tasks (table added by the
+      // shared-tasks migration; if it isn't there yet this just comes
+      // back empty and every assignee is reminded as before).
+      const { data: markRows } = await supabase
+        .from("task_member_marks")
+        .select("task_id, member_id, status, snoozed_until, at")
+        .in("task_id", dueTasks.map((t) => t.id))
+        .in("scheduled_for", [shiftDate(dateISO, -1), dateISO, shiftDate(dateISO, 1)]);
+      const answeredByTask = new Map<string, Set<string>>();
+      for (const m of (markRows ?? []) as MarkRow[]) {
+        const answered =
+          ((m.status === "completed" || m.status === "refused") && new Date(m.at).getTime() >= dayStartMs) ||
+          (m.status === "snoozed" && m.snoozed_until != null && new Date(m.snoozed_until).getTime() > nowMs);
+        if (!answered) continue;
+        if (!answeredByTask.has(m.task_id)) answeredByTask.set(m.task_id, new Set());
+        answeredByTask.get(m.task_id)!.add(m.member_id);
+      }
+
       const { data: familyMembers } = await supabase
         .from("family_members")
         .select("id")
@@ -240,7 +266,10 @@ Deno.serve(async (req: Request) => {
         if (isDealtWith(occs, dateISO, dayStartMs, nowMs)) continue;
         if (occ && occ.status !== "snoozed" && (occ.reminders_sent ?? 0) >= MAX_AUTO_REMINDERS) continue;
 
-        const targetIds = resolveAssigneeIds(task.assignee, dateISO, allMemberIds);
+        // On a shared task, whoever already answered for themselves
+        // (done, refused, or snoozed and still waiting) is left out.
+        const answered = answeredByTask.get(task.id);
+        const targetIds = resolveAssigneeIds(task.assignee, dateISO, allMemberIds).filter((id) => !answered?.has(id));
         if (targetIds.length === 0) continue;
 
         const { data: subs } = await supabase.from("push_subscriptions").select("*").in("member_id", targetIds);

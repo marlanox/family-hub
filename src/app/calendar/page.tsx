@@ -4,7 +4,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { Icon } from "@/components/Icon";
 import { TaskCard } from "@/components/TaskCard";
 import { isScheduledOn, resolveAssigneeIds, todayISO } from "@/lib/schedule";
-import { useFamilyStore } from "@/lib/store";
+import { sharedProgress, taskStatusFor, useFamilyStore } from "@/lib/store";
 import type { Task } from "@/lib/types";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -38,6 +38,7 @@ function timeLabel(task: Task) {
 
 export default function CalendarPage() {
   const members = useFamilyStore((s) => s.members);
+  const whoAmI = useFamilyStore((s) => s.whoAmI);
   const tasks = useFamilyStore((s) => s.tasks);
   const occurrences = useFamilyStore((s) => s.occurrences);
   const completeTask = useFamilyStore((s) => s.completeTask);
@@ -55,8 +56,9 @@ export default function CalendarPage() {
 
   const assigneeLabel = (task: Task, dateISO: string) => {
     const ids = resolveAssigneeIds(task.assignee, dateISO);
-    if (ids === "family") return "Всем";
-    return ids.map((id) => members.find((m) => m.id === id)?.displayName ?? id).join(", ");
+    const label = ids === "family" ? "Всем" : ids.map((id) => members.find((m) => m.id === id)?.displayName ?? id).join(", ");
+    const p = sharedProgress(task, occurrences[`${task.id}__${dateISO}`], members, dateISO);
+    return p ? `${label} · ${p.done}/${p.total} ✓` : label;
   };
 
   return (
@@ -125,7 +127,7 @@ export default function CalendarPage() {
               {isOpen && (
                 <div className="halftone-dots space-y-2 border-t-3 border-ink bg-violet-soft p-3 text-violet">
                   {dayTasks.map((task) => {
-                    const status = occurrences[`${task.id}__${dateISO}`]?.status ?? "pending";
+                    const status = taskStatusFor(task, occurrences[`${task.id}__${dateISO}`], whoAmI, members, dateISO);
                     return (
                       <Link key={task.id} href={`/tasks/remind?id=${task.id}&src=app`} className="block">
                         <TaskCard
