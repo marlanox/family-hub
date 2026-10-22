@@ -179,7 +179,7 @@ export default function HomePage() {
             const status = occurrences[key]?.status ?? "pending";
             if (status === "refused") return null;
             return (
-              <Link key={task.id} href={`/tasks/remind?id=${task.id}`} className="block">
+              <Link key={task.id} href={`/tasks/remind?id=${task.id}&src=app`} className="block">
                 <TaskCard
                   icon={task.icon}
                   color={task.color}

@@ -128,7 +128,7 @@ export default function CalendarPage() {
                   {dayTasks.map((task) => {
                     const status = occurrences[`${task.id}__${dateISO}`]?.status ?? "pending";
                     return (
-                      <Link key={task.id} href={`/tasks/remind?id=${task.id}`} className="block">
+                      <Link key={task.id} href={`/tasks/remind?id=${task.id}&src=app`} className="block">
                         <TaskCard
                           icon={task.icon}
                           color={task.color}

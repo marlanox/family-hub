@@ -31,6 +31,9 @@ function TaskReminderContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id") ?? "";
   const isFreshlyAssigned = searchParams.get("reason") === "assigned";
+  // Opened by tapping a card inside the app (src=app), not by a reminder
+  // notification — no alarm then, just the screen.
+  const openedFromApp = searchParams.get("src") === "app";
   const router = useRouter();
   const task = useFamilyStore((s) => s.tasks.find((t) => t.id === id));
   const members = useFamilyStore((s) => s.members);
@@ -77,16 +80,20 @@ function TaskReminderContent() {
   const isDueToday = !!task && isScheduledOn(task, new Date(`${todayKey}T12:00:00`));
   const showAssignedView = isFreshlyAssigned || !isDueToday;
 
-  // The due-now screen (not the "freshly assigned" one, not the refuse
-  // confirmation, not someone who isn't today's assignee) keeps buzzing
-  // like an actual alarm clock for as long as it's open — it only stops
-  // because leaving the screen (any of the three actions, or the back
-  // button) unmounts this effect.
-  const isUrgentScreen = !!task && isMineToday && !showAssignedView && !confirmingRefuse;
+  // The due-now screen, reached from a reminder notification, buzzes like
+  // an alarm clock — but only three times (~7 s), then goes quiet. It
+  // used to loop for as long as the screen stayed open, and the same
+  // screen also opened from an ordinary tap on your own task, so the app
+  // could beep endlessly just from being opened.
+  const isUrgentScreen = !!task && isMineToday && !showAssignedView && !confirmingRefuse && !openedFromApp;
   useEffect(() => {
     if (!isUrgentScreen) return;
     playSound("urgentAlarm", soundEnabled, soundTheme);
-    const interval = setInterval(() => playSound("urgentAlarm", soundEnabled, soundTheme), 2500);
+    let rings = 1;
+    const interval = setInterval(() => {
+      playSound("urgentAlarm", soundEnabled, soundTheme);
+      if (++rings >= 3) clearInterval(interval);
+    }, 2500);
     return () => clearInterval(interval);
   }, [isUrgentScreen, soundEnabled, soundTheme]);
 

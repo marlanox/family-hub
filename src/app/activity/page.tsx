@@ -72,7 +72,7 @@ export default function ActivityPage() {
           // Entries about a task this phone has open the task itself — so a
           // task someone just gave you can be answered from here too.
           return event.taskId && taskIds.has(event.taskId) ? (
-            <Link key={event.id} href={`/tasks/remind?id=${event.taskId}`} className="block">
+            <Link key={event.id} href={`/tasks/remind?id=${event.taskId}&src=app`} className="block">
               {card}
             </Link>
           ) : (
