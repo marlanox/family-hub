@@ -6,6 +6,7 @@ import { Facet } from "@/components/Facet";
 import { FamilyMemberSticker } from "@/components/FamilyMemberSticker";
 import { GoalProgress } from "@/components/GoalProgress";
 import { HeaderBanner } from "@/components/HeaderBanner";
+import { PenaltyBanner } from "@/components/Penalties";
 import { Icon } from "@/components/Icon";
 import { SectionTitle } from "@/components/SectionTitle";
 import { TaskCard } from "@/components/TaskCard";
@@ -133,6 +134,8 @@ export default function HomePage() {
         <p className="-mt-3 text-center text-[11px] font-bold text-ink/40">
           Нажмите на себя, чтобы добавить фото ✏️
         </p>
+
+        <PenaltyBanner />
 
         {assignedToMe.length > 0 && (
           <>

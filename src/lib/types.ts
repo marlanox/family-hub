@@ -221,7 +221,30 @@ export type ActivityEventType =
   | "badge_earned"
   | "reward_unlocked"
   | "member_joined"
-  | "guide_updated";
+  | "guide_updated"
+  | "penalty"
+  | "penalty_appeal"
+  | "penalty_resolved";
+
+/**
+ * A fine for a chore marked done but not really done: part or all of
+ * that task's points taken back, with a reason. The fined person can
+ * appeal; a third family member decides. Cancelling returns the points.
+ */
+export interface Penalty {
+  id: string;
+  taskId?: string;
+  taskTitle: string;
+  memberId: string; // who was fined
+  issuedBy: string; // who fined
+  points: number; // what was actually taken
+  reason: string;
+  status: "active" | "appealed" | "upheld" | "cancelled";
+  appealText?: string;
+  resolvedBy?: string;
+  createdAt: string;
+  resolvedAt?: string;
+}
 
 export interface ActivityEvent {
   id: string;

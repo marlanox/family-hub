@@ -5,6 +5,7 @@ import type {
   EarnedBadge,
   FamilyMember,
   Guide,
+  Penalty,
   Task,
 } from "./types";
 
@@ -22,12 +23,32 @@ export interface MemberMark {
   snoozedUntil?: string;
 }
 
+export function rowToPenalty(row: Record<string, unknown>): Penalty {
+  return {
+    id: row.id as string,
+    taskId: (row.task_id as string | null) ?? undefined,
+    taskTitle: row.task_title as string,
+    memberId: row.member_id as string,
+    issuedBy: (row.issued_by as string | null) ?? "",
+    points: row.points as number,
+    reason: row.reason as string,
+    status: row.status as Penalty["status"],
+    appealText: (row.appeal_text as string | null) ?? undefined,
+    resolvedBy: (row.resolved_by as string | null) ?? undefined,
+    createdAt: row.created_at as string,
+    resolvedAt: (row.resolved_at as string | null) ?? undefined,
+  };
+}
+
 export interface RemoteSnapshot {
   familyName: string;
   familyTimezone?: string;
   // False when the activity query failed — the merge then keeps local
   // entries instead of treating "nothing came back" as "all deleted".
   activityOk: boolean;
+  // Null when the fines table isn't there yet (migration not run) or the
+  // query failed — local fines are then kept as they are.
+  penalties: Penalty[] | null;
   familyPoints: number;
   familyMilestonesUnlocked: number;
   members: FamilyMember[];
@@ -547,6 +568,50 @@ export async function pushActivity(event: ActivityEvent, familyId: string): Prom
   }
 }
 
+export async function issuePenaltyRemote(
+  familyId: string,
+  p: { taskId?: string; taskTitle: string; memberId: string; issuedBy: string; points: number; reason: string },
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
+  try {
+    const { data, error } = await supabase.rpc("issue_penalty", {
+      p_family_id: familyId,
+      p_task_id: p.taskId ?? null,
+      p_task_title: p.taskTitle,
+      p_member_id: p.memberId,
+      p_issued_by: p.issuedBy,
+      p_points: p.points,
+      p_reason: p.reason,
+    });
+    return error ? { ok: false, error: error.message } : { ok: true, id: data as string };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function appealPenaltyRemote(id: string, text: string): Promise<SyncResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
+  try {
+    const { error } = await supabase.rpc("appeal_penalty", { p_id: id, p_text: text });
+    return error ? { ok: false, error: error.message } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function resolvePenaltyRemote(id: string, resolverId: string, cancel: boolean): Promise<SyncResult> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
+  try {
+    const { error } = await supabase.rpc("resolve_penalty", { p_id: id, p_resolver: resolverId, p_cancel: cancel });
+    return error ? { ok: false, error: error.message } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /** How much activity history is kept and synced (counters are computed from it). */
 export const ACTIVITY_LIMIT = 1000;
 
@@ -651,9 +716,9 @@ export async function fetchSnapshot(
 ): Promise<{ ok: true; snapshot: RemoteSnapshot } | { ok: false; error: string }> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Облако не настроено на этом устройстве." };
-  let familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes, guidesRes, marksRes;
+  let familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes, guidesRes, marksRes, penaltiesRes;
   try {
-    [familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes, guidesRes, marksRes] = await Promise.all([
+    [familyRes, membersRes, tasksRes, occRes, activityRes, badgesRes, historyRes, guidesRes, marksRes, penaltiesRes] = await Promise.all([
       supabase.from("families").select("*").eq("id", familyId).maybeSingle(),
       supabase.from("family_members").select("*").eq("family_id", familyId),
       supabase.from("tasks").select("*").eq("family_id", familyId),
@@ -685,6 +750,12 @@ export async function fetchSnapshot(
         .eq("tasks.family_id", familyId)
         .gte("scheduled_for", isoDaysAgo(21))
         .limit(1000),
+      supabase
+        .from("task_penalties")
+        .select("*")
+        .eq("family_id", familyId)
+        .order("created_at", { ascending: false })
+        .limit(300),
     ]);
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -723,6 +794,7 @@ export async function fetchSnapshot(
       familyName: familyRes.data.name,
       familyTimezone: familyRes.data.timezone ?? undefined,
       activityOk: !activityRes.error,
+      penalties: penaltiesRes.error ? null : (penaltiesRes.data ?? []).map(rowToPenalty),
       familyPoints: familyRes.data.family_points_pool,
       familyMilestonesUnlocked: familyRes.data.family_milestones_unlocked,
       members: (membersRes.data ?? []).map(rowToMember),

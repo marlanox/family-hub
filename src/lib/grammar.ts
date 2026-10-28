@@ -2,6 +2,8 @@
 // family told us who is who: Маша and Наташа are feminine, Ваня is
 // masculine. Anyone else (a renamed or newly added member) gets a
 // gender-free phrasing ("Имя — готово: …") until added here.
+import { plural } from "./time";
+
 type Gender = "f" | "m";
 
 const FAMILY_GENDER: Record<string, Gender> = {
@@ -88,6 +90,46 @@ export function msgBadge(name: string, label: string): string {
 
 export function msgUndone(names: string[], title: string, points: number): string {
   return `Отменено «${title}» (−${points}) — ${list(names)}`;
+}
+
+/** «кого»: Маша → Машу, Ваня → Ваню. */
+export function accusative(name: string): string {
+  const n = name.trim();
+  if (/а$/.test(n)) return `${n.slice(0, -1)}у`;
+  if (/я$/.test(n)) return `${n.slice(0, -1)}ю`;
+  return n;
+}
+
+export function pointsWord(n: number): string {
+  return plural(n, "балл", "балла", "баллов");
+}
+
+export function msgFined(issuer: string, target: string, points: number, title: string, reason: string): string {
+  const v = verb([issuer], "оштрафовал", "оштрафовала", "оштрафовали");
+  return v
+    ? `${issuer} ${v} ${accusative(target)} на ${points} ${pointsWord(points)}: «${title}» — ${reason}`
+    : `Штраф −${points}: ${target}, «${title}» — ${reason} (${issuer})`;
+}
+
+/** "не согласен" / "не согласна" for one person (neutral "против" if unknown). */
+export function notAgree(name: string): string {
+  return verb([name], "не согласен", "не согласна", "не согласны") ?? "против";
+}
+
+export function msgAppealed(target: string, title: string): string {
+  const v = verb([target], "не согласен", "не согласна", "не согласны");
+  return v ? `${target} ${v} со штрафом за «${title}»` : `${target} обжалует штраф за «${title}»`;
+}
+
+export function msgResolved(resolver: string, target: string, title: string, cancelled: boolean, points: number): string {
+  if (cancelled) {
+    const v = verb([resolver], "отменил", "отменила", "отменили");
+    return v
+      ? `${resolver} ${v} штраф за «${title}» — ${dative(target)} вернули ${points} ${pointsWord(points)}`
+      : `Штраф за «${title}» отменён (${resolver}) — ${target}: +${points}`;
+  }
+  const v = verb([resolver], "оставил", "оставила", "оставили");
+  return v ? `${resolver} ${v} штраф за «${title}» в силе` : `Штраф за «${title}» остаётся (${resolver})`;
 }
 
 const names = (s: string) => s.split(", ").map((n) => n.trim());

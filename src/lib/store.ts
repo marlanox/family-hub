@@ -20,6 +20,9 @@ import {
   pushRefuse,
   pushSnooze,
   pushTask,
+  issuePenaltyRemote,
+  appealPenaltyRemote,
+  resolvePenaltyRemote,
   repairCompletedOccurrence,
   syncFamilyTimezone,
   undoCompletionRemote,
@@ -30,7 +33,20 @@ import {
 } from "./sync";
 import { setCustomSupabase } from "./supabaseClient";
 import { creditedMemberIds } from "./stats";
-import { msgAssigned, msgBadge, msgCompleted, msgGuide, msgJoined, msgRefused, msgSnoozed, msgTrophy, msgUndone } from "./grammar";
+import {
+  msgAppealed,
+  msgAssigned,
+  msgBadge,
+  msgCompleted,
+  msgFined,
+  msgGuide,
+  msgJoined,
+  msgRefused,
+  msgResolved,
+  msgSnoozed,
+  msgTrophy,
+  msgUndone,
+} from "./grammar";
 import type {
   ActivityEvent,
   Difficulty,
@@ -39,6 +55,7 @@ import type {
   Guide,
   IconKey,
   OccurrenceStatus,
+  Penalty,
   Recurrence,
   Task,
   TaskAssignee,
@@ -167,6 +184,7 @@ interface FamilyHubState {
   activity: ActivityEvent[];
   earnedBadges: EarnedBadge[];
   guides: Guide[];
+  penalties: Penalty[];
   familyPoints: number;
   familyMilestonesUnlocked: number;
   familyRewardHistory: FamilyRewardHistoryEntry[];
@@ -211,6 +229,9 @@ interface FamilyHubState {
   addTask: (input: NewTaskInput) => string;
   removeTask: (taskId: string) => void;
   addGuide: (title: string, content: string) => string;
+  issuePenalty: (input: { memberId: string; taskId?: string; taskTitle: string; points: number; reason: string }) => void;
+  appealPenalty: (id: string, text: string) => void;
+  resolvePenalty: (id: string, cancel: boolean) => void;
   updateGuide: (id: string, fields: { title?: string; content?: string }) => void;
   removeGuide: (id: string) => void;
   addMember: (name: string, accentColor?: FamilyMember["accentColor"]) => string;
@@ -486,6 +507,7 @@ function mergeRewardHistory(
 }
 
 interface MergeResult {
+  penalties: Penalty[];
   repairs: Repair[];
   healedKeys: string[];
   members: FamilyMember[];
@@ -616,6 +638,25 @@ function deviceTimezone(): string | null {
   }
 }
 
+// The server's list is the truth (status changes happen there). A fine
+// made on this phone a moment ago and not back from the server yet is
+// kept; if the table doesn't exist yet (remote null), nothing changes.
+const LOCAL_PENALTY_PENDING_MS = 5 * 60 * 1000;
+function mergePenalties(local: Penalty[], remote: Penalty[] | null): Penalty[] {
+  if (!remote) return local;
+  const ids = new Set(remote.map((p) => p.id));
+  const pending = local.filter(
+    (p) => !ids.has(p.id) && p.id.startsWith("local-") && Date.now() - new Date(p.createdAt).getTime() < LOCAL_PENALTY_PENDING_MS,
+  );
+  return [...pending, ...remote];
+}
+
+/** Who decides an appeal: anyone but the one fined and the one who fined (or, in a pair, the one who fined). */
+export function penaltyJudges(p: Penalty, members: FamilyMember[]): string[] {
+  const others = members.filter((m) => m.id !== p.memberId && m.id !== p.issuedBy).map((m) => m.id);
+  return others.length ? others : [p.issuedBy];
+}
+
 function mergeSnapshot(
   local: {
     members: FamilyMember[];
@@ -624,6 +665,7 @@ function mergeSnapshot(
     activity: ActivityEvent[];
     earnedBadges: EarnedBadge[];
     guides: Guide[];
+    penalties?: Penalty[];
     familyPoints: number;
     familyMilestonesUnlocked: number;
     familyRewardHistory: FamilyRewardHistoryEntry[];
@@ -662,6 +704,7 @@ function mergeSnapshot(
     activity,
     earnedBadges: mergeBadges(local.earnedBadges, remote.earnedBadges),
     guides: mergeGuides(local.guides, remote.guides),
+    penalties: mergePenalties(local.penalties ?? [], remote.penalties),
     familyRewardHistory: mergeRewardHistory(local.familyRewardHistory, remote.familyRewardHistory),
     // What the server actually has right now — compared against next
     // time, to tell "deleted on the server" apart from "not pushed yet".
@@ -678,6 +721,7 @@ const EMPTY_STATE = {
   activity: [] as ActivityEvent[],
   earnedBadges: [] as EarnedBadge[],
   guides: [] as Guide[],
+  penalties: [] as Penalty[],
   familyPoints: 0,
   familyMilestonesUnlocked: 0,
   familyRewardHistory: [] as FamilyRewardHistoryEntry[],
@@ -1224,6 +1268,104 @@ export const useFamilyStore = create<FamilyHubState>()(
             if (!result.ok) set({ lastSyncError: result.error });
           });
         }
+      },
+
+      issuePenalty: ({ memberId, taskId, taskTitle, points, reason }) => {
+        const state = get();
+        const issuer = state.whoAmI;
+        const target = state.members.find((m) => m.id === memberId);
+        if (!issuer || !target || issuer === memberId || points <= 0 || !reason.trim()) return;
+        const now = new Date().toISOString();
+        const taken = Math.min(points, target.points);
+        const localId = `local-${newId("penalty")}`;
+        const penalty: Penalty = { id: localId, taskId, taskTitle, memberId, issuedBy: issuer, points: taken, reason: reason.trim(), status: "active", createdAt: now };
+        const issuerName = state.members.find((m) => m.id === issuer)?.displayName ?? "";
+        const message = msgFined(issuerName, target.displayName, taken, taskTitle, reason.trim());
+        set({
+          penalties: [penalty, ...state.penalties],
+          members: state.members.map((m) => (m.id === memberId ? { ...m, points: m.points - taken } : m)),
+          familyPoints: Math.max(0, state.familyPoints - taken),
+          lastLocalScoreChangeAt: now,
+        });
+        get().logActivity({ type: "penalty", memberId, taskId, points: taken, message });
+        const code = state.familyCode;
+        if (!code) return;
+        void issuePenaltyRemote(code, { taskId, taskTitle, memberId, issuedBy: issuer, points, reason: reason.trim() }).then((r) => {
+          if (!r.ok) {
+            set({ lastSyncError: r.error });
+            return;
+          }
+          set((st) => ({
+            penalties: st.penalties.map((p) => (p.id === localId ? { ...p, id: r.id } : p)),
+            lastLocalScoreChangeAt: new Date().toISOString(),
+          }));
+          void pushActivity({ id: "", familyId: code, type: "penalty", memberId, taskId, points: taken, message, createdAt: now }, code);
+          const others = get().members.map((m) => m.id).filter((id) => id !== memberId);
+          void notifyFamily(code, others, "⚖️ Штраф", message, "/activity");
+        });
+      },
+
+      appealPenalty: (id, text) => {
+        const state = get();
+        const p = state.penalties.find((x) => x.id === id);
+        if (!p || p.status !== "active" || state.whoAmI !== p.memberId) return;
+        const target = state.members.find((m) => m.id === p.memberId)?.displayName ?? "";
+        const message = msgAppealed(target, p.taskTitle) + (text.trim() ? `: ${text.trim()}` : "");
+        set({ penalties: state.penalties.map((x) => (x.id === id ? { ...x, status: "appealed", appealText: text.trim() || undefined } : x)) });
+        get().logActivity({ type: "penalty_appeal", memberId: p.memberId, taskId: p.taskId, message });
+        const code = state.familyCode;
+        if (!code || id.startsWith("local-")) return;
+        void appealPenaltyRemote(id, text).then((r) => {
+          if (!r.ok) {
+            set({ lastSyncError: r.error });
+            return;
+          }
+          void pushActivity({ id: "", familyId: code, type: "penalty_appeal", memberId: p.memberId, taskId: p.taskId, message, createdAt: new Date().toISOString() }, code);
+          const judges = penaltyJudges(p, get().members);
+          const notJudges = get().members.map((m) => m.id).filter((mid) => !judges.includes(mid));
+          void notifyFamily(code, notJudges, "⚖️ Рассуди спор", message, "/activity");
+        });
+      },
+
+      resolvePenalty: (id, cancel) => {
+        const state = get();
+        const p = state.penalties.find((x) => x.id === id);
+        const me = state.whoAmI;
+        if (!p || !me) return;
+        const isJudge = p.status === "appealed" && penaltyJudges(p, state.members).includes(me);
+        const isIssuerForgiving = cancel && p.issuedBy === me && (p.status === "active" || p.status === "appealed");
+        if (!isJudge && !isIssuerForgiving) return;
+        if (!cancel && p.status !== "appealed") return;
+        const now = new Date().toISOString();
+        const resolver = state.members.find((m) => m.id === me)?.displayName ?? "";
+        const target = state.members.find((m) => m.id === p.memberId)?.displayName ?? "";
+        const message = msgResolved(resolver, target, p.taskTitle, cancel, p.points);
+        set({
+          penalties: state.penalties.map((x) =>
+            x.id === id ? { ...x, status: cancel ? "cancelled" : "upheld", resolvedBy: me, resolvedAt: now } : x,
+          ),
+          ...(cancel
+            ? {
+                members: state.members.map((m) => (m.id === p.memberId ? { ...m, points: m.points + p.points } : m)),
+                familyPoints: state.familyPoints + p.points,
+                lastLocalScoreChangeAt: now,
+              }
+            : {}),
+        });
+        get().logActivity({ type: "penalty_resolved", memberId: p.memberId, taskId: p.taskId, message });
+        const code = state.familyCode;
+        if (!code || id.startsWith("local-")) return;
+        void resolvePenaltyRemote(id, me, cancel).then((r) => {
+          if (!r.ok) {
+            set({ lastSyncError: r.error });
+            return;
+          }
+          if (cancel) set({ lastLocalScoreChangeAt: new Date().toISOString() });
+          void pushActivity({ id: "", familyId: code, type: "penalty_resolved", memberId: p.memberId, taskId: p.taskId, message, createdAt: now }, code);
+          const parties = [p.memberId, p.issuedBy];
+          const others = get().members.map((m) => m.id).filter((mid) => !parties.includes(mid) || mid === me);
+          void notifyFamily(code, others, cancel ? "⚖️ Штраф отменён" : "⚖️ Штраф в силе", message, "/activity");
+        });
       },
 
       addGuide: (title, content) => {

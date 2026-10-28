@@ -3,7 +3,10 @@
 import { BottomNav } from "@/components/BottomNav";
 import { Facet, shapeFor } from "@/components/Facet";
 import { Icon } from "@/components/Icon";
+import { PenaltyPanel, PenaltySheet } from "@/components/Penalties";
 import { creditedMemberIds } from "@/lib/stats";
+import type { ActivityEvent } from "@/lib/types";
+import { useState } from "react";
 import { useFamilyStore } from "@/lib/store";
 import { humanizeActivity } from "@/lib/grammar";
 import { relativeTime } from "@/lib/time";
@@ -22,6 +25,9 @@ const ICONS: Record<ActivityEventType, IconKey> = {
   reward_unlocked: "gift",
   member_joined: "family",
   guide_updated: "checklist",
+  penalty: "close",
+  penalty_appeal: "alarm",
+  penalty_resolved: "star",
 };
 
 const TONES: Record<ActivityEventType, string> = {
@@ -36,6 +42,9 @@ const TONES: Record<ActivityEventType, string> = {
   reward_unlocked: "bg-lilac-soft",
   member_joined: "bg-violet-soft",
   guide_updated: "bg-lime-soft",
+  penalty: "stripes-bw",
+  penalty_appeal: "bg-violet",
+  penalty_resolved: "bg-silver-soft",
 };
 
 export default function ActivityPage() {
@@ -43,6 +52,8 @@ export default function ActivityPage() {
   const tasks = useFamilyStore((s) => s.tasks);
   const members = useFamilyStore((s) => s.members);
   const undoCompletion = useFamilyStore((s) => s.undoCompletion);
+  const whoAmI = useFamilyStore((s) => s.whoAmI);
+  const [fining, setFining] = useState<ActivityEvent | null>(null);
   const taskIds = new Set(tasks.map((t) => t.id));
 
   return (
@@ -53,6 +64,7 @@ export default function ActivityPage() {
       </header>
 
       <main className="flex-1 space-y-2.5 px-4 pb-6 pt-4 landscape:grid landscape:grid-cols-2 landscape:items-start landscape:gap-2.5 landscape:space-y-0">
+        <PenaltyPanel />
         {activity.length === 0 && (
           <p className="rounded-2xl border-3 border-dashed border-ink/30 p-4 text-center text-sm font-semibold text-ink/50">
             Пока тихо — выполните первую задачу
@@ -88,11 +100,27 @@ export default function ActivityPage() {
                       Отменить
                     </button>
                   )}
+                  {/* Done, but not really done: fine part of its points. Not for your own. */}
+                  {event.type === "task_completed" &&
+                    (event.points ?? 0) > 0 &&
+                    creditedMemberIds(event, members).some((id) => id !== whoAmI) && (
+                      <button
+                        type="button"
+                        className="text-xs font-bold uppercase text-ink underline underline-offset-2"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setFining(event);
+                        }}
+                      >
+                        Штраф
+                      </button>
+                    )}
                 </div>
               </div>
               {typeof event.points === "number" && (
-                <Facet shape={shapeFor(event.id) + 2} shadow="none" fillClassName="bg-lime px-2.5 py-1">
-                  <span className="font-display text-[11px]">+{event.points}</span>
+                <Facet shape={shapeFor(event.id) + 2} shadow="none" fillClassName={event.type === "penalty" ? "bg-ink px-2.5 py-1 text-white" : "bg-lime px-2.5 py-1"}>
+                  <span className="font-display text-[11px]">{event.type === "penalty" ? "−" : "+"}{event.points}</span>
                 </Facet>
               )}
             </Facet>
@@ -109,6 +137,7 @@ export default function ActivityPage() {
         })}
       </main>
 
+      {fining && <PenaltySheet event={fining} onClose={() => setFining(null)} />}
       <BottomNav />
     </>
   );
