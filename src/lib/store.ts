@@ -1300,8 +1300,8 @@ export const useFamilyStore = create<FamilyHubState>()(
             lastLocalScoreChangeAt: new Date().toISOString(),
           }));
           void pushActivity({ id: "", familyId: code, type: "penalty", memberId, taskId, points: taken, message, createdAt: now }, code);
-          const others = get().members.map((m) => m.id).filter((id) => id !== memberId);
-          void notifyFamily(code, others, "⚖️ Штраф", message, "/activity");
+          // Everyone hears about every fine — except whoever just gave it.
+          void notifyFamily(code, [issuer], "⚖️ Штраф", message, "/activity");
         });
       },
 
@@ -1321,9 +1321,12 @@ export const useFamilyStore = create<FamilyHubState>()(
             return;
           }
           void pushActivity({ id: "", familyId: code, type: "penalty_appeal", memberId: p.memberId, taskId: p.taskId, message, createdAt: new Date().toISOString() }, code);
+          // Whoever decides gets "рассуди"; everyone else (but the one who
+          // appealed) gets a plain heads-up.
           const judges = penaltyJudges(p, get().members);
-          const notJudges = get().members.map((m) => m.id).filter((mid) => !judges.includes(mid));
-          void notifyFamily(code, notJudges, "⚖️ Рассуди спор", message, "/activity");
+          const everyone = get().members.map((m) => m.id);
+          void notifyFamily(code, everyone.filter((mid) => !judges.includes(mid)), "⚖️ Рассуди спор", message, "/activity");
+          void notifyFamily(code, [...judges, p.memberId], "⚖️ Апелляция", message, "/activity");
         });
       },
 
@@ -1362,9 +1365,7 @@ export const useFamilyStore = create<FamilyHubState>()(
           }
           if (cancel) set({ lastLocalScoreChangeAt: new Date().toISOString() });
           void pushActivity({ id: "", familyId: code, type: "penalty_resolved", memberId: p.memberId, taskId: p.taskId, message, createdAt: now }, code);
-          const parties = [p.memberId, p.issuedBy];
-          const others = get().members.map((m) => m.id).filter((mid) => !parties.includes(mid) || mid === me);
-          void notifyFamily(code, others, cancel ? "⚖️ Штраф отменён" : "⚖️ Штраф в силе", message, "/activity");
+          void notifyFamily(code, [me], cancel ? "⚖️ Штраф отменён" : "⚖️ Штраф в силе", message, "/activity");
         });
       },
 
